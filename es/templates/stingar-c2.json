@@ -1,5 +1,5 @@
 {
-  "_comment": "Index template for the stingar-c2-* evidence ledger (DESIGN.md §4.2). geo_point and ip types will NOT dynamic-map — this template is required before first write. PUT _index_template/stingar-c2",
+  "_comment": "Index template for the stingar-c2-* evidence ledger (DESIGN.md §4.2). geo_point and ip types will NOT dynamic-map — required before first write. The engine installs this automatically on startup (EsWriter.ensure_bootstrap); this file is the manual-path copy. Source of truth: src/c2engine/ingest/es_assets.py. PUT _index_template/stingar-c2",
   "index_patterns": ["stingar-c2-*"],
   "priority": 200,
   "template": {
@@ -45,7 +45,9 @@
         "content_truncated": { "type": "boolean" },
         "callbacks": { "type": "keyword" },
 
-        "c2_via_sha256": { "type": "keyword" }
+        "c2_via_sha256": { "type": "keyword" },
+
+        "fluentd_tag": { "type": "keyword" }
       }
     }
   }

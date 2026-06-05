@@ -13,7 +13,7 @@ import pytest
 from c2engine.extract import all_observations
 from c2engine.extract._util import find_hosts, interpreter_of, sniff_magic
 from c2engine.model import SessionIn
-from c2engine.pipeline import TAG_C2, TAG_SESSION, process
+from c2engine.pipeline import INDEX_C2, INDEX_SESSION, process
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -89,8 +89,8 @@ def test_pipeline_additive_and_strip(raw: dict) -> None:
 
 def test_envelope_tags(raw: dict) -> None:
     envs = process(raw).envelopes()
-    assert envs[0][0] == TAG_SESSION
-    assert all(t == TAG_C2 for t, _ in envs[1:])
+    assert envs[0][0] == INDEX_SESSION
+    assert all(t == INDEX_C2 for t, _ in envs[1:])
     # session + 2 shell_ref + 1 served + 1 callback = 5 records
     assert len(envs) == 5
 

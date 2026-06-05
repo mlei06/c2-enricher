@@ -3,7 +3,8 @@
 Field names match what the cowrie fork's ``output_stingar`` plugin
 (``src/cowrie/plugins/stingar.py``, Forewarned) emits on
 ``cowrie.session.closed`` — verified against the plugin source 2026-06-05.
-One doc per session, tag ``<app>.events.cowrie``.
+One doc per session. New sensors tag ``<app>.enrichable.cowrie``; stock
+sensors still use ``<app>.events.cowrie``.
 
 The pass-through invariant (DESIGN.md §4.1): the engine never renames,
 retypes, or rewrites a stock field. ``extra="allow"`` everywhere — unknown

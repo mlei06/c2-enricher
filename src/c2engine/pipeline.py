@@ -14,9 +14,12 @@ from c2engine.enrich.session import enrich_session
 from c2engine.extract import all_observations
 from c2engine.model import C2Observation, SessionIn
 
-#: Fluent tags the engine emits (DESIGN.md §3.2). Routed by central Fluentd.
-TAG_SESSION = "enriched.events.cowrie"
-TAG_C2 = "enriched.c2.cowrie"
+#: Inbound tag from new sensors (output_stingar on the cowrie fork).
+TAG_INBOUND = "stingar.enrichable.cowrie"
+
+#: ES index prefixes (logstash_format, daily rotation) — written by ingest/es.py.
+INDEX_SESSION = "stingar"
+INDEX_C2 = "stingar-c2"
 
 
 @dataclass
@@ -27,9 +30,11 @@ class Enriched:
     observations: list[C2Observation]
 
     def envelopes(self) -> list[tuple[str, dict[str, Any]]]:
-        """(tag, record) pairs — the unit the server/CLI forward downstream."""
-        out: list[tuple[str, dict[str, Any]]] = [(TAG_SESSION, self.session_doc)]
-        out.extend((TAG_C2, o.model_dump(mode="json", exclude_none=True)) for o in self.observations)
+        """(index_prefix, record) pairs — for offline replay / backfill tooling."""
+        out: list[tuple[str, dict[str, Any]]] = [(INDEX_SESSION, self.session_doc)]
+        out.extend(
+            (INDEX_C2, o.model_dump(mode="json", exclude_none=True)) for o in self.observations
+        )
         return out
 
 

@@ -1,9 +1,10 @@
 # c2-engine
 
-Central C2-detection engine for a STINGAR/Cowrie honeypot fleet. Sits as a
-Fluentd hop on the STINGAR server: consumes raw Cowrie session docs
-(`stingar.events.cowrie`), emits enriched sessions plus an append-only C2
-evidence ledger (`stingar-c2-*`) that powers the Kibana C2 dashboards.
+Central C2-detection engine for a STINGAR/Cowrie honeypot fleet. Drop-in on
+the STINGAR server: new sensors emit `stingar.enrichable.cowrie`, Fluentd
+forwards only those to c2-engine, which writes enriched sessions and the
+append-only C2 evidence ledger (`stingar-c2-*`) directly to Elasticsearch.
+Stock sensors keep the unchanged `stingar.events.*` path.
 
 **Read [DESIGN.md](DESIGN.md) first** — it is the founding design document:
 architecture, data contracts, evidence/stage model, dashboard specs, and the
@@ -16,10 +17,10 @@ src/c2engine/
 ├── model/      wire contracts (milestone 1 — implemented)
 ├── extract/    evidence-row producers          (milestone 2 — skeleton)
 ├── enrich/     geo / family / session fields   (milestone 2 — skeleton)
-├── ingest/     Fluent forward in/out           (milestone 3 — skeleton)
+├── ingest/     Fluent forward in, direct ES out
 └── cli.py      offline replay & backfill       (milestone 2 — skeleton)
 es/             index template, ILM policy, dashboard exports
-deploy/         STINGAR server compose overlay + Fluentd routing rules
+deploy/         full STINGAR + c2-engine compose, fluent.conf, env template
 tests/          golden session fixtures → expected evidence rows
 ```
 

@@ -62,7 +62,7 @@ flowchart LR
     subgraph Central["STINGAR central server"]
         direction TB
         Fluentd["Fluentd :24224"]
-        Engine["c2-engine (stateless)<br/>Fluent forward in/out"]
+        Engine["c2-engine (stateless)<br/>Fluent forward in, ES out"]
         ES1[("stingar-*<br/>sessions (stock + additive)")]
         ES2[("stingar-c2-*<br/>C2 evidence ledger")]
         Kibana["Kibana dashboards"]
@@ -70,13 +70,12 @@ flowchart LR
 
     Attacker -- "SSH/Telnet attack" --> Cowrie
     Cowrie -- "in-session URL fetch (Cowrie's IP)" --> Attacker
-    Cowrie -- "session.closed + bytes<br/>tag stingar.events.cowrie" --> SensorFB
+    Cowrie -- "session.closed + bytes<br/>tag stingar.enrichable.cowrie (new sensors)" --> SensorFB
     SensorFB -- "shared-key forward" --> Fluentd
-    Fluentd -- "match stingar.events.cowrie" --> Engine
-    Engine -- "session (bytes stripped, + c2_hosts/playbook_hash/hassh)<br/>tag enriched.events.cowrie" --> Fluentd
-    Engine -- "evidence rows<br/>tag enriched.c2.cowrie" --> Fluentd
-    Fluentd -- "enriched.events.*" --> ES1
-    Fluentd -- "enriched.c2.*" --> ES2
+    Fluentd -- "match stingar.enrichable.*" --> Engine
+    Engine -- "session + evidence rows" --> ES1
+    Engine -- "ledger rows" --> ES2
+    Fluentd -- "stingar.events.* (stock sensors, unchanged)" --> ES1
     ES1 <--> Kibana
     ES2 <--> Kibana
 ```
@@ -95,17 +94,17 @@ flowchart LR
   STINGAR CENTRAL SERVER                             ▼
  ┌───────────────────────────────────────────────────────────┐
  │                    Fluentd :24224                          │
- │   match stingar.events.cowrie │        ▲ enriched.*        │
- │                               ▼        │                   │
+ │   match stingar.enrichable.* ─▶ c2-engine ─▶ ES directly   │
+ │   match stingar.events.*     ─▶ ES (stock path, unchanged) │
  │            ┌────────────────────────────────┐              │
  │            │ c2-engine (stateless)          │              │
  │            │ 1 extract  hosts/files/chains  │              │
  │            │ 2 enrich   geo · asn · family  │              │
- │            │ 3 emit     session + evidence  │              │
+ │            │ 3 write    session + ledger    │              │
  │            └────────────────────────────────┘              │
  │                                                            │
- │   enriched.events.cowrie ─▶ ES stingar-*    (sessions)     │
- │   enriched.c2.cowrie     ─▶ ES stingar-c2-* (ledger)       │
+ │   stingar-*    ◀── stock events + enriched sessions        │
+ │   stingar-c2-* ◀── ledger rows (new sensors only)         │
  │                                   │                        │
  │   Kibana  ◀── ES queries ─────────┘                        │
  └───────────────────────────────────────────────────────────┘
@@ -117,10 +116,12 @@ flowchart LR
    commands **in-session, from Cowrie's IP**, recording the attack-time
    resolved IP; bytes land in the downloads dir.
 2. On `session.closed`, `output_stingar` emits one session doc with download
-   bytes inlined (≤5 MB each), tag `stingar.events.cowrie`.
-3. Sensor Fluent Bit forwards to central Fluentd (shared-key auth) — stock path.
-4. Fluentd matches the tag and forwards to c2-engine. If the engine is down,
-   Fluentd buffers and retries: events delay, never drop.
+   bytes inlined (≤5 MB each). **New sensors** tag `stingar.enrichable.cowrie`;
+   stock sensors still tag `stingar.events.cowrie` (unchanged legacy path).
+3. Sensor Fluent Bit forwards to central Fluentd (shared-key auth).
+4. Fluentd geo-filters `stingar.enrichable.*` and forwards to c2-engine. Stock
+   `stingar.events.*` keeps the existing ES match. If the engine is down,
+   Fluentd buffers enrichable events and retries: they delay, never drop.
 5. The engine, per session:
    - **extract**: C2 hosts from commands (`shell_reference`); files from
      inlined bytes (`served_file` — hash×3, magic, script-vs-binary,
@@ -128,11 +129,9 @@ flowchart LR
      strings); onward hosts (`file_callback` rows with `c2_via_sha256`).
    - **enrich**: GeoIP/ASN (MaxMind, central DB), `self_hosted`,
      `evidence_rank`; session-level `playbook_hash`, `hassh`, `c2_hosts[]`.
-   - **emit**: session doc (bytes stripped, additive fields) under
-     `enriched.events.cowrie`; evidence rows under `enriched.c2.cowrie`.
-6. Fluentd routes the two enriched tags to their indices.
-7. Sensor checkins (`checkin.py` "sensor" messages) bypass the engine —
-   Fluentd only routes the events tag through it.
+   - **write**: session doc (bytes stripped, additive fields) to `stingar-*`;
+     evidence rows to `stingar-c2-*` (direct ES, no Fluentd return hop).
+6. Sensor checkins (`checkin.py` "sensor" messages) bypass the engine entirely.
 
 ### 3.3 Why central (recorded trade-off)
 
@@ -152,7 +151,8 @@ renamed, retyped, or rewritten.**
 
 Wire shape verified against the cowrie fork's `output_stingar` plugin source
 (2026-06-05): one doc per session on `cowrie.session.closed`, tag
-`<app>.events.cowrie`; sensor identity nested under `sensor.{uuid,hostname,
+`<app>.enrichable.cowrie` (new sensors; stock still use `<app>.events.cowrie`);
+sensor identity nested under `sensor.{uuid,hostname,
 tags,asn}`; session id at `hp_data.session`; hassh precomputed at
 `hp_data.kex.hassh` (our top-level `hassh` is a pivot-convenience copy);
 files at `hp_data.files[].{url,outfile,shasum,action,status}`. The sensor-side
@@ -384,7 +384,7 @@ clicking a sha256 answers "which C2s/sensors saw this exact artifact."
 
 | Failure | Behavior |
 |---|---|
-| c2-engine down | Fluentd buffers `stingar.events.cowrie`, retries; events delay, never drop or bypass enrichment |
+| c2-engine down | Fluentd buffers `stingar.enrichable.*`, retries; events delay, never drop. Stock `stingar.events.*` unaffected |
 | Engine bug on a malformed session | log + emit session unenriched (bytes stripped, no additive fields) — never block the session stream |
 | MaxMind DB stale/missing | rows emit without geo fields; map thins, ledger stays correct |
 | Mirai wave floods bytes over Fluentd | acceptable at honeypot volume; escape hatch = sensor-side hashing (recorded in §3.3) |

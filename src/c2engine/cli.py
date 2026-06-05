@@ -19,6 +19,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from c2engine.enrich.geo import GeoEnricher
+from c2engine.ingest import serve
 from c2engine.pipeline import process
 
 
@@ -71,16 +72,17 @@ def main(argv: list[str] | None = None) -> int:
     replay.add_argument("--maxmind-dir", default=None, help="dir with GeoLite2-*.mmdb")
     replay.set_defaults(func=_cmd_replay)
 
-    serve = sub.add_parser("serve", help="run the Fluent forward hop (milestone 3)")
-    serve.set_defaults(func=lambda _a: _not_yet("serve"))
+    sub.add_parser("serve", help="run forward server + direct ES writer").set_defaults(
+        func=_cmd_serve
+    )
 
     args = parser.parse_args(argv)
     return int(args.func(args))
 
 
-def _not_yet(name: str) -> int:
-    print(f"c2-engine {name}: not implemented yet (milestone 3)", file=sys.stderr)
-    return 2
+def _cmd_serve(_args: argparse.Namespace) -> int:
+    serve()
+    return 0
 
 
 if __name__ == "__main__":
