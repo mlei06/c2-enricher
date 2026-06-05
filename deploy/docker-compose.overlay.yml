@@ -1,0 +1,22 @@
+# Additive overlay for the STINGAR server's stock docker-compose.yml.
+# Run from the STINGAR root:
+#   docker compose -f docker-compose.yml -f <this-repo>/deploy/docker-compose.overlay.yml up -d
+#
+# Adds ONE service. The stock fluentd needs the routing rules in
+# deploy/fluentd/ merged into its config (see that directory's README).
+# If c2engine is down, fluentd buffers and retries — sessions delay,
+# never drop (DESIGN.md §8).
+services:
+  c2engine:
+    image: c2-engine:latest   # or build from this repo: docker build -t c2-engine .
+    restart: on-failure
+    environment:
+      C2E_LISTEN_HOST: 0.0.0.0
+      C2E_LISTEN_PORT: "24230"
+      # Re-emit enriched.* back to the stock fluentd:
+      C2E_UPSTREAM_HOST: fluentd
+      C2E_UPSTREAM_PORT: "24224"
+      C2E_MAXMIND_DIR: /maxmind
+    volumes:
+      - ./maxmind:/maxmind:ro   # GeoLite2-City.mmdb + GeoLite2-ASN.mmdb
+    # No published ports: only fluentd (same compose network) talks to it.
