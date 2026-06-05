@@ -1268,7 +1268,7 @@ inline_max_bytes = 5242880
 # In-session URL fetcher: fetches attacker-referenced URLs at attack time from
 # Cowrie's own network identity, covering wrapper-hidden URLs and non-emulated
 # loaders. Records the attack-time resolved IP for central geolocation.
-[output_url_fetcher]
+[output_urlfetcher]
 enabled = true
 download_path = ${honeypot:download_path}
 timeout_s = 10

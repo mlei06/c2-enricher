@@ -45,7 +45,7 @@ Hard-coded safety guards:
 * Fetches run on a worker thread (``reactor.callInThread``) so the
   Cowrie session loop is not blocked while the fetch is in flight.
 
-Config (under ``[output_url_fetcher]`` in ``cowrie.cfg``)::
+Config (under ``[output_urlfetcher]`` in ``cowrie.cfg``)::
 
     enabled       = true
     download_path = ${honeypot:download_path}    # use Cowrie's normal dir
@@ -76,7 +76,7 @@ from twisted.python import log as twisted_log
 import cowrie.core.output
 from cowrie.core.config import CowrieConfig
 
-logger = logging.getLogger("cowrie.output.url_fetcher")
+logger = logging.getLogger("cowrie.output.urlfetcher")
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +307,7 @@ class Output(cowrie.core.output.Output):
 
     def __init__(self) -> None:
         self.download_path = CowrieConfig.get(
-            "output_url_fetcher",
+            "output_urlfetcher",
             "download_path",
             fallback=CowrieConfig.get(
                 "honeypot",
@@ -316,13 +316,13 @@ class Output(cowrie.core.output.Output):
             ),
         )
         self.timeout_s = CowrieConfig.getint(
-            "output_url_fetcher", "timeout_s", fallback=10
+            "output_urlfetcher", "timeout_s", fallback=10
         )
         self.max_bytes = CowrieConfig.getint(
-            "output_url_fetcher", "max_bytes", fallback=50 * 1024 * 1024
+            "output_urlfetcher", "max_bytes", fallback=50 * 1024 * 1024
         )
         self.user_agent = CowrieConfig.get(
-            "output_url_fetcher", "user_agent", fallback="Wget/1.21.2"
+            "output_urlfetcher", "user_agent", fallback="Wget/1.21.2"
         )
         # In-process URL cache so identical URLs across sessions only fetch once.
         self._fetched: set[str] = set()

@@ -57,3 +57,8 @@ pika==1.4.0
 
 # prometheus
 prometheus_client==0.25.0
+
+# stingar / c2-engine: output_stingar emits over the Fluent forward protocol;
+# cymruwhois is imported by the grafted configure.py / checkin.py.
+fluent-logger==0.11.1
+cymruwhois==1.6

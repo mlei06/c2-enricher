@@ -66,7 +66,7 @@ def _load(name: str, path: Path):
 def plugins():
     _install_stubs()
     stingar = _load("_sensor_stingar", CLONE / "plugins" / "stingar.py")
-    url_fetcher = _load("_sensor_url_fetcher", CLONE / "output" / "url_fetcher.py")
+    url_fetcher = _load("_sensor_urlfetcher", CLONE / "output" / "urlfetcher.py")
     return stingar, url_fetcher
 
 
