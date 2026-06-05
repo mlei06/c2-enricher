@@ -15,6 +15,7 @@ the fields the engine reads.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -41,18 +42,24 @@ class Credential(BaseModel):
 
 
 class Kex(BaseModel):
-    """``hp_data.kex`` — SSH client KEX; hassh is precomputed by Cowrie."""
+    """``hp_data.kex`` — SSH client KEX; hassh is precomputed by Cowrie.
+
+    The algorithm lists are typed ``Any``: real Cowrie emits them as JSON
+    arrays on some versions and ``;``-joined strings on others (verified
+    against the live deployment). The engine only reads ``hassh``, so we accept
+    either rather than over-constrain a field we don't parse.
+    """
 
     model_config = ConfigDict(extra="allow")
 
     hassh: str | None = None
-    hassh_algorithms: str | None = None
-    kex_algorithms: str | None = None
-    key_algorithms: str | None = None
-    enc_cs: str | None = None
-    mac_cs: str | None = None
-    comp_cs: str | None = None
-    lang_cs: str | None = None
+    hassh_algorithms: Any = None
+    kex_algorithms: Any = None
+    key_algorithms: Any = None
+    enc_cs: Any = None
+    mac_cs: Any = None
+    comp_cs: Any = None
+    lang_cs: Any = None
 
 
 class FileRef(BaseModel):

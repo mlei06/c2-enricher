@@ -61,6 +61,20 @@ def test_inlined_bytes_decode_to_dropper(raw_session: dict) -> None:
     assert "5.6.7.8" in content  # the onward callback the chain extractor must find
 
 
+def test_kex_algorithms_accept_lists(raw_session: dict) -> None:
+    """Live Cowrie emits kex algorithm fields as JSON arrays (not strings) —
+    verified against the deployment. The model must accept either."""
+    raw_session["hp_data"]["kex"] = {
+        "hassh": "abc",
+        "kex_algorithms": ["curve25519-sha256", "ecdh-sha2-nistp256"],
+        "enc_cs": ["aes128-ctr"],
+        "comp_cs": ["none"],
+    }
+    s = SessionIn.model_validate(raw_session)
+    assert s.hp_data.kex.hassh == "abc"
+    assert s.hp_data.kex.kex_algorithms == ["curve25519-sha256", "ecdh-sha2-nistp256"]
+
+
 def test_evidence_rank_stamped() -> None:
     obs = C2Observation(c2_host="59.96.137.61", evidence="served_file")
     assert obs.evidence_rank == 1

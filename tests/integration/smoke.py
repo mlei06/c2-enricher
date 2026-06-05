@@ -149,13 +149,21 @@ def main() -> None:
     if not shits:
         _fail("enriched session not found in stingar-*")
     doc = shits[0]
-    if set(doc.get("c2_hosts", [])) != {"59.96.137.61", "evil.example.com", "5.6.7.8"}:
+    hp = doc["hp_data"]
+    # session c2_hosts = command-referenced hosts (the callback 5.6.7.8 is a
+    # ledger-only chain row, not a session host).
+    if set(doc.get("c2_hosts", [])) != {"59.96.137.61", "evil.example.com"}:
         _fail(f"c2_hosts wrong: {doc.get('c2_hosts')}")
-    if "content_b64" in doc["hp_data"]["files"][0]:
+    if hp.get("iocs_c2_hosts") != doc.get("c2_hosts"):
+        _fail("iocs_c2_hosts != c2_hosts (should share one source)")
+    if "content_b64" in hp["files"][0]:
         _fail("content_b64 not stripped from session")
-    if doc.get("hassh") != "92674389fa1e47a27ddd8d9b63ecd42b":
-        _fail(f"hassh not copied: {doc.get('hassh')}")
-    print("[6/6] session: enriched in stingar-* — c2_hosts set, hassh copied, content_b64 stripped")
+    if hp.get("hassh") != "92674389fa1e47a27ddd8d9b63ecd42b":
+        _fail(f"hassh not in hp_data: {hp.get('hassh')}")
+    if len(hp.get("playbook_hash", "")) != 40:
+        _fail(f"playbook_hash not SHA1: {hp.get('playbook_hash')}")
+    print("[6/6] session: enriched in stingar-* — hp_data.{iocs_*,playbook_hash(SHA1),"
+          "hassh} present, c2_hosts pivot set, content_b64 stripped")
 
     print("\nSMOKE PASS — every ingest seam verified end-to-end against live ES.")
 

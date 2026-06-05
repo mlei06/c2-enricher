@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from c2engine.context import build_context
 from c2engine.enrich.geo import GeoEnricher
 from c2engine.enrich.session import enrich_session
 from c2engine.extract import all_observations
@@ -46,8 +47,9 @@ def process(raw: dict[str, Any], geo: GeoEnricher | None = None) -> Enriched:
     stream (DESIGN.md §8). Callers log the exception.
     """
     session = SessionIn.model_validate(raw)
-    observations = all_observations(session)
+    ctx = build_context(session)  # computed once; shared by ledger + enrichment
+    observations = all_observations(session, ctx)
     if geo is not None and geo.enabled:
         observations = [geo.enrich(o) for o in observations]
-    doc = enrich_session(raw, session, observations)
+    doc = enrich_session(raw, session, ctx)
     return Enriched(session_doc=doc, observations=observations)
