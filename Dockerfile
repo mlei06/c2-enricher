@@ -9,7 +9,11 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install --no-cache-dir '.[geo]'
 
-COPY --from=geoip /fluentd/etc/GeoLite2-City.mmdb /fluentd/etc/GeoLite2-ASN.mmdb /maxmind/
+# In 4warned/fluentd:v2.3 only the ASN db sits in /fluentd/etc; the City db is
+# bundled inside the fluent-plugin-geoip gem (verified on the live deployment).
+# Glob the gem path so a plugin version bump doesn't break the build.
+COPY --from=geoip /fluentd/etc/GeoLite2-ASN.mmdb /maxmind/
+COPY --from=geoip /usr/local/bundle/gems/fluent-plugin-geoip-*/data/GeoLite2-City.mmdb /maxmind/
 ENV C2E_MAXMIND_DIR=/maxmind
 
 # Fluent forward in (from central fluentd) — compose-network only.
