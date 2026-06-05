@@ -150,6 +150,14 @@ ship metadata + strings hits only).
 Same doc, same tag family, same index, same routing. **No existing field is
 renamed, retyped, or rewritten.**
 
+Wire shape verified against the cowrie fork's `output_stingar` plugin source
+(2026-06-05): one doc per session on `cowrie.session.closed`, tag
+`<app>.events.cowrie`; sensor identity nested under `sensor.{uuid,hostname,
+tags,asn}`; session id at `hp_data.session`; hassh precomputed at
+`hp_data.kex.hassh` (our top-level `hassh` is a pivot-convenience copy);
+files at `hp_data.files[].{url,outfile,shasum,action,status}`. The sensor-side
+additions land inside `files[]` as `content_b64` + `resolved_ip`.
+
 ```jsonc
 {
   // ...stock STINGAR session doc, byte-for-byte...

@@ -1,4 +1,9 @@
-"""Milestone 1: the wire contracts hold against the golden fixture."""
+"""Milestone 1: the wire contracts hold against the golden fixture.
+
+The fixture mirrors ``output_stingar`` (stingar.py) exactly; these tests pin
+the field names the engine reads, so a sensor-side wire change breaks loudly
+here first.
+"""
 
 import base64
 import json
@@ -18,10 +23,27 @@ def raw_session() -> dict:
 
 def test_session_parses(raw_session: dict) -> None:
     s = SessionIn.model_validate(raw_session)
-    assert s.ident == "a82be2b776ab4161911eb9114b8b1234"
+    assert s.sensor_uuid == "a82be2b776ab4161911eb9114b8b1234"
+    assert s.sensor_hostname == "sensor-dmz-1"
+    assert s.session_id == "c0ffee010203"
     assert s.src_ip == "59.96.137.61"
+    assert s.protocol == "ssh"
     assert s.hp_data.commands and "wget" in s.hp_data.commands[1]
-    assert s.hp_data.files and s.hp_data.files[0].resolved_ip == "59.96.137.61"
+    assert s.hp_data.credentials[0].success is True
+    assert s.hp_data.kex and s.hp_data.kex.hassh == "92674389fa1e47a27ddd8d9b63ecd42b"
+
+
+def test_file_entry_matches_plugin_shape(raw_session: dict) -> None:
+    f = SessionIn.model_validate(raw_session).hp_data.files[0]
+    assert f.action == "download" and f.status == "successful"
+    assert f.shasum.startswith("8c1bd271")
+    assert f.resolved_ip == "59.96.137.61"  # sensor-side addition (pending)
+
+
+def test_empty_end_time_tolerated(raw_session: dict) -> None:
+    """The plugin initializes end_time to "" — parse must not choke on it."""
+    raw_session["end_time"] = ""
+    assert SessionIn.model_validate(raw_session).end_time is None
 
 
 def test_unknown_fields_survive_roundtrip(raw_session: dict) -> None:
@@ -29,7 +51,7 @@ def test_unknown_fields_survive_roundtrip(raw_session: dict) -> None:
     s = SessionIn.model_validate(raw_session)
     dumped = s.model_dump()
     assert dumped["hp_data"]["unknown_stock_field"] == "must pass through verbatim"
-    assert dumped["app"] == "cowrie"
+    assert dumped["sensor"]["tags"]["area"] == "dmz"
 
 
 def test_inlined_bytes_decode_to_dropper(raw_session: dict) -> None:

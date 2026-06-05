@@ -1,40 +1,77 @@
 """Inbound Cowrie/STINGAR session doc, and the additive outbound contract.
 
-The pass-through invariant (DESIGN.md §4.1): the engine never renames,
-retypes, or rewrites a stock field. ``SessionIn`` therefore keeps
-``extra="allow"`` everywhere — unknown fields ride through untouched and are
-re-emitted verbatim. We only *model* the fields the engine reads.
+Field names match what the cowrie fork's ``output_stingar`` plugin
+(``src/cowrie/plugins/stingar.py``, Forewarned) emits on
+``cowrie.session.closed`` — verified against the plugin source 2026-06-05.
+One doc per session, tag ``<app>.events.cowrie``.
 
-TODO(milestone 1 exit): validate every modeled field name against a real
-stock STINGAR v2.3 session doc (dev-stack NDJSON dump or live ES). The names
-below follow the cowrie ``output_stingar`` plugin but have not yet been
-checked against the wire.
+The pass-through invariant (DESIGN.md §4.1): the engine never renames,
+retypes, or rewrites a stock field. ``extra="allow"`` everywhere — unknown
+fields ride through untouched and are re-emitted verbatim. We only *model*
+the fields the engine reads.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+
+class Sensor(BaseModel):
+    """``sensor`` envelope — the honeypot's identity."""
+
+    model_config = ConfigDict(extra="allow")
+
+    uuid: str = ""  # HONEYPOT_IDENT
+    hostname: str = ""
+    tags: dict[str, object] = {}  # colon pairs + "misc" list
+    asn: str = ""
+
+
+class Credential(BaseModel):
+    """One ``hp_data.credentials[]`` entry (login.success / login.failed)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    username: str = ""
+    password: str = ""
+    success: bool = False
+
+
+class Kex(BaseModel):
+    """``hp_data.kex`` — SSH client KEX; hassh is precomputed by Cowrie."""
+
+    model_config = ConfigDict(extra="allow")
+
+    hassh: str | None = None
+    hassh_algorithms: str | None = None
+    kex_algorithms: str | None = None
+    key_algorithms: str | None = None
+    enc_cs: str | None = None
+    mac_cs: str | None = None
+    comp_cs: str | None = None
+    lang_cs: str | None = None
 
 
 class FileRef(BaseModel):
-    """One entry in ``hp_data.files[]`` — a file the attacker referenced.
+    """One ``hp_data.files[]`` entry (file_download / file_upload events).
 
-    ``content_b64`` is the transport-only inlined bytes added by the sensor's
-    ``output_stingar`` plugin (≤5 MB per file). The engine consumes it and
-    strips it before the session doc lands in ``stingar-*``.
-    ``resolved_ip`` is the attack-time DNS resolution recorded by
-    ``url_fetcher`` — ground truth that a central lookup hours later can't
-    reproduce.
+    ``content_b64`` and ``resolved_ip`` are NOT stock — they are the planned
+    sensor-side additions (DESIGN.md §5.2): inlined download bytes (≤5 MB,
+    stripped by the engine before the session lands in ES) and url_fetcher's
+    attack-time DNS resolution. Optional so stock docs parse today.
     """
 
     model_config = ConfigDict(extra="allow")
 
-    url: str | None = None
-    shasum: str | None = None  # sha256, Cowrie's downloads-dir key
-    resolved_ip: str | None = None
-    content_b64: str | None = None  # transport-only; never reaches ES
+    url: str = ""
+    outfile: str = ""
+    shasum: str = ""  # sha256, Cowrie's downloads-dir key
+    action: str = ""  # "download" | "upload"
+    status: str = ""  # "successful" | "failed"
+    resolved_ip: str | None = None  # sensor-side addition (pending)
+    content_b64: str | None = None  # sensor-side addition (pending); never reaches ES
 
 
 class HpData(BaseModel):
@@ -42,12 +79,22 @@ class HpData(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    commands: list[str] | None = None
-    credentials: list[dict[str, object]] | None = None
-    files: list[FileRef] | None = None
-    # SSH client fingerprint inputs (hassh) — exact key names TBD vs wire.
-    kex: dict[str, object] | None = None
-    client_version: str | None = None
+    con_type: str = "accept"
+    transport: str = "tcp"
+    session: str = ""  # the session id
+    credentials: list[Credential] = []
+    commands: list[str] = []
+    unknown_commands: list[str] = []
+    urls: list[str] = []
+    files: list[FileRef] = []
+    uploads: list[object] = []
+    version: str | None = None  # SSH client banner, e.g. "SSH-2.0-libssh2_1.4.3"
+    ttylog: str | None = None  # hex-encoded ttylog bytes
+    arch: str | None = None
+    client_height: int | None = None
+    client_width: int | None = None
+    key_fingerprint: str | None = None  # attacker-supplied pubkey fingerprint
+    kex: Kex | None = None
 
 
 class SessionIn(BaseModel):
@@ -55,13 +102,34 @@ class SessionIn(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    ident: str = ""  # sensor uuid (HONEYPOT_IDENT)
-    hostname: str = ""  # sensor hostname
-    src_ip: str = ""
-    session: str = ""  # session id
+    app: str = "cowrie"
+    sensor: Sensor = Sensor()
+    protocol: str = ""
     start_time: datetime | None = None
-    end_time: datetime | None = None
+    end_time: datetime | None = None  # "" until session close; always set on the wire
+    src_ip: str = ""
+    src_port: int | None = None
+    dst_ip: str = ""
+    dst_port: int | None = None
     hp_data: HpData = HpData()
+
+    @field_validator("start_time", "end_time", mode="before")
+    @classmethod
+    def _empty_str_is_none(cls, v: object) -> object:
+        return None if v == "" else v
+
+    # Convenience accessors for ledger-row stamping -------------------------
+    @property
+    def session_id(self) -> str:
+        return self.hp_data.session
+
+    @property
+    def sensor_uuid(self) -> str:
+        return self.sensor.uuid
+
+    @property
+    def sensor_hostname(self) -> str:
+        return self.sensor.hostname
 
 
 class SessionAdditive(BaseModel):
@@ -69,6 +137,8 @@ class SessionAdditive(BaseModel):
 
     Merged top-level into the outbound session; everything else in the doc is
     the inbound doc verbatim, minus ``hp_data.files[].content_b64``.
+    ``hassh`` is a top-level copy of ``hp_data.kex.hassh`` for direct Kibana
+    pivots — the nested original is untouched.
     """
 
     c2_hosts: list[str] = []
