@@ -1,0 +1,54 @@
+# Honeypot-host sensor stack — enrichment-enabled, by published image name.
+# No build step: pulls michaeldockerlei/cowrie-stingar (our cowrie + output
+# plugins + in-session url fetcher) and the stock fluentbit forwarder.
+#
+#   cp ../../current_stingar_deploy/sensor/stingar-hp.env ./stingar-hp.env  # then edit
+#   docker compose --env-file stingar-hp.env up -d
+#
+# The image's entrypoint renders cowrie.cfg from these env vars, sends one
+# "sensor" check-in, then starts cowrie. The periodic healthcheck below
+# re-sends the heartbeat so the host stays "alive" in the STINGAR UI.
+services:
+  cowrie:
+    image: michaeldockerlei/cowrie-stingar:v2.3
+    depends_on:
+      - fluentbit
+    env_file: stingar-hp.env
+    links:
+      - fluentbit:fluentbit
+    ports:
+      - 22:2222
+      - 23:2223
+    healthcheck:
+      # checkin.py lives in our image at stingar/, not /opt; call it via the
+      # cowrie venv python. Exec form (no shell) — distroless has none.
+      test:
+        - CMD
+        - /cowrie/cowrie-env/bin/python3
+        - /cowrie/cowrie-git/stingar/checkin.py
+        - -i
+        - $HONEYPOT_IDENT
+        - -n
+        - $HONEYPOT_HOST
+        - -a
+        - $HONEYPOT_IP
+        - -t
+        - cowrie
+        - --tags
+        - $TAGS
+        - --fluent-host
+        - $FLUENTBIT_HOST
+        - --fluent-port
+        - $FLUENTBIT_PORT
+        - --fluent-app
+        - $FLUENTBIT_APP
+      interval: $HONEYPOT_HEALTHCHECK_INTERVAL
+      timeout: $HONEYPOT_HEALTHCHECK_TIMEOUT
+      retries: 1
+
+  fluentbit:
+    image: 4warned/fluentbit
+    env_file: stingar-hp.env
+    ports:
+      - 127.0.0.1:24284:24284
+      - 127.0.0.1:24284:24284/udp

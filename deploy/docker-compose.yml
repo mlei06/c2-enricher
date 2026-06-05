@@ -54,10 +54,9 @@ services:
         condition: service_started
 
   c2engine:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    image: c2-engine:latest
+    # Published image (linux/amd64). To build locally instead, uncomment build:
+    # build: { context: .., dockerfile: Dockerfile }
+    image: michaeldockerlei/c2-engine:v2.3
     restart: on-failure
     environment:
       C2E_LISTEN_HOST: 0.0.0.0
