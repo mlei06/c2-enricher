@@ -11,3 +11,11 @@ build/
 .coverage
 *.mmdb
 .env
+
+# Rendered env files contain real secrets (FLUENTD_KEY / API_KEY / PASSPHRASE /
+# SALT) — never commit. Keep *.example templates only.
+stingar.env
+stingar-hp.env
+**/stingar.env
+**/stingar-hp.env
+!*.example
