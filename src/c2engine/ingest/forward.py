@@ -75,27 +75,36 @@ def _pong_response(ping: list[Any]) -> bytes:
     return msgpack.packb(["PONG", tag, ts, {}], use_bin_type=True)
 
 
-class _ForwardHandler(socketserver.StreamRequestHandler):
+class _ForwardHandler(socketserver.BaseRequestHandler):
     handler: RecordHandler | None = None
 
     def handle(self) -> None:
         assert _ForwardHandler.handler is not None
-        unpacker = msgpack.Unpacker(self.rfile, raw=False, max_buffer_size=_MAX_BUFFER)
-        for msg in unpacker:
-            if isinstance(msg, list) and msg and msg[0] == "PING":
-                self.wfile.write(_pong_response(msg))
-                self.wfile.flush()
-                continue
+        # Feed bytes as they arrive — do NOT hand the socket file to Unpacker:
+        # a blocking read() would wait to fill its buffer and never yield the
+        # frame, so the ack would never be sent.
+        unpacker = msgpack.Unpacker(raw=False, max_buffer_size=_MAX_BUFFER)
+        while True:
+            data = self.request.recv(65536)
+            if not data:
+                break
+            unpacker.feed(data)
+            for msg in unpacker:
+                self._dispatch(msg)
 
-            records, option = parse_frame(msg)
-            # Process the whole frame; a handler error means "not delivered" —
-            # propagate so we skip the ack and Fluentd resends the chunk.
-            for tag, record in records:
-                _ForwardHandler.handler(tag, record)
+    def _dispatch(self, msg: object) -> None:
+        if isinstance(msg, list) and msg and msg[0] == "PING":
+            self.request.sendall(_pong_response(msg))
+            return
 
-            if option and "chunk" in option:
-                self.wfile.write(msgpack.packb({"ack": option["chunk"]}, use_bin_type=True))
-                self.wfile.flush()
+        records, option = parse_frame(msg)
+        # Process the whole frame; a handler error means "not delivered" —
+        # propagate so we skip the ack and Fluentd resends the chunk.
+        for tag, record in records:
+            _ForwardHandler.handler(tag, record)  # type: ignore[misc]
+
+        if option and "chunk" in option:
+            self.request.sendall(msgpack.packb({"ack": option["chunk"]}, use_bin_type=True))
 
 
 class ForwardServer(socketserver.ThreadingTCPServer):
