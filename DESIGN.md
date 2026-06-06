@@ -392,6 +392,10 @@ clicking a sha256 answers "which C2s/sensors saw this exact artifact."
 
 ## 9. Deferred — with explicit triggers
 
+> The triggers below have now fired (GreyNoise-parity push). See
+> **[DESIGN_PARITY.md](DESIGN_PARITY.md)** for the implementation plan
+> (entity rollup + reason layer + VirusTotal + blocklist feed).
+
 | Item | Trigger |
 |---|---|
 | `stingarc2-entities` (ES transform, retention_policy max_age=30d) | reason layer ships, OR a downstream consumer needs a dumb feed (blocklist API) |
