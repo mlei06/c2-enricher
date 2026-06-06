@@ -60,6 +60,14 @@ def _handle_record(
     es.write_session(session_doc, source_tag=tag)
     if rows:
         es.write_observations(rows, source_tag=tag)
+    hp = session_doc.get("hp_data")
+    sensor = session_doc.get("sensor")
+    log.info(
+        "enriched session %s from %s: +%d ledger rows",
+        hp.get("session", "?") if isinstance(hp, dict) else "?",
+        sensor.get("hostname", "?") if isinstance(sensor, dict) else "?",
+        len(rows),
+    )
 
 
 def serve() -> None:

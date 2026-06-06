@@ -49,6 +49,24 @@ def test_packed_forward_mode() -> None:
     assert option == {"chunk": "z"}
 
 
+def test_packed_forward_entries_as_str_blob() -> None:
+    """fluentd out_forward packs the PackedForward entries as a msgpack STR-typed
+    blob of binary (not bin). The parser must handle that without a UTF-8 decode
+    error — this is the real-world frame that broke the live pipeline."""
+    entries = msgpack.packb([1, {"a": 1}]) + msgpack.packb([2, {"b": 2}])
+    # use_bin_type=False -> the bytes blob is encoded as msgpack `str` (raw),
+    # exactly how fluentd sends it.
+    frame_bytes = msgpack.packb(["stingar.enrichable.cowrie", entries, {"chunk": "x"}],
+                                use_bin_type=False)
+    from c2engine.ingest.forward import _unpacker
+    up = _unpacker()
+    up.feed(frame_bytes)
+    msg = next(iter(up))
+    records, option = parse_frame(msg)
+    assert [r for _, r in records] == [{"a": 1}, {"b": 2}]
+    assert option == {"chunk": "x"}
+
+
 def test_compressed_packed_forward() -> None:
     raw = msgpack.packb([1, {"a": 1}]) + msgpack.packb([2, {"b": 2}])
     frame = _roundtrip(

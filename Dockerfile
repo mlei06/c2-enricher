@@ -15,6 +15,8 @@ RUN pip install --no-cache-dir '.[geo]'
 COPY --from=geoip /fluentd/etc/GeoLite2-ASN.mmdb /maxmind/
 COPY --from=geoip /usr/local/bundle/gems/fluent-plugin-geoip-*/data/GeoLite2-City.mmdb /maxmind/
 ENV C2E_MAXMIND_DIR=/maxmind
+# Unbuffered so logs (incl. tracebacks) flush to `docker logs` immediately.
+ENV PYTHONUNBUFFERED=1
 
 # Fluent forward in (from central fluentd) — compose-network only.
 EXPOSE 24230

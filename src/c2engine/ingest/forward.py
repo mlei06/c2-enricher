@@ -28,6 +28,17 @@ RecordHandler = Callable[[str, dict[str, Any]], None]
 # Inlined download bytes (≤5 MB base64) make frames large; allow generous chunks.
 _MAX_BUFFER = 256 * 1024 * 1024
 
+# fluentd out_forward sends PackedForward entries as a msgpack STR-typed blob of
+# raw binary, not bin. Decoding with strict utf-8 dies on it, so we decode the
+# whole stream with surrogateescape (lossless str<->bytes round-trip) and turn
+# the blob back into bytes before unpacking the inner [time, record] entries.
+def _unpacker() -> msgpack.Unpacker:
+    return msgpack.Unpacker(raw=False, unicode_errors="surrogateescape", max_buffer_size=_MAX_BUFFER)
+
+
+def _as_bytes(blob: Any) -> bytes:
+    return blob if isinstance(blob, (bytes, bytearray)) else blob.encode("utf-8", "surrogateescape")
+
 
 def parse_frame(msg: object) -> tuple[list[tuple[str, dict[str, Any]]], dict[str, Any] | None]:
     """Return ([(tag, record), ...], option) for one forward-protocol frame.
@@ -48,14 +59,15 @@ def parse_frame(msg: object) -> tuple[list[tuple[str, dict[str, Any]]], dict[str
                 records.append((tag, entry[1]))
         if len(msg) >= 3 and isinstance(msg[2], dict):
             option = msg[2]
-    elif isinstance(second, (bytes, bytearray)):
-        # PackedForward / CompressedPackedForward: [tag, <bytes>, option?]
+    elif isinstance(second, (bytes, bytearray, str)):
+        # PackedForward / CompressedPackedForward: [tag, <blob>, option?]
+        # (blob arrives as str under surrogateescape; convert back to bytes)
         if len(msg) >= 3 and isinstance(msg[2], dict):
             option = msg[2]
-        data = bytes(second)
+        data = _as_bytes(second)
         if option and option.get("compressed") == "gzip":
             data = gzip.decompress(data)
-        up = msgpack.Unpacker(raw=False, max_buffer_size=_MAX_BUFFER)
+        up = _unpacker()
         up.feed(data)
         for entry in up:
             if isinstance(entry, list) and len(entry) >= 2 and isinstance(entry[1], dict):
@@ -83,14 +95,21 @@ class _ForwardHandler(socketserver.BaseRequestHandler):
         # Feed bytes as they arrive — do NOT hand the socket file to Unpacker:
         # a blocking read() would wait to fill its buffer and never yield the
         # frame, so the ack would never be sent.
-        unpacker = msgpack.Unpacker(raw=False, max_buffer_size=_MAX_BUFFER)
+        unpacker = _unpacker()
         while True:
             data = self.request.recv(65536)
             if not data:
                 break
             unpacker.feed(data)
             for msg in unpacker:
-                self._dispatch(msg)
+                try:
+                    self._dispatch(msg)
+                except Exception:
+                    # Log the real cause, then close without acking so Fluentd
+                    # retries (at-least-once). Without this the handler error is
+                    # invisible and the chunk loops forever.
+                    log.exception("error handling frame from %s", self.client_address)
+                    return
 
     def _dispatch(self, msg: object) -> None:
         if isinstance(msg, list) and msg and msg[0] == "PING":
@@ -98,6 +117,12 @@ class _ForwardHandler(socketserver.BaseRequestHandler):
             return
 
         records, option = parse_frame(msg)
+        log.debug(
+            "frame: top=%s records=%d chunk=%s",
+            type(msg).__name__ if not isinstance(msg, list) else f"list[{len(msg)}]",
+            len(records),
+            (option or {}).get("chunk"),
+        )
         # Process the whole frame; a handler error means "not delivered" —
         # propagate so we skip the ack and Fluentd resends the chunk.
         for tag, record in records:
@@ -105,6 +130,7 @@ class _ForwardHandler(socketserver.BaseRequestHandler):
 
         if option and "chunk" in option:
             self.request.sendall(msgpack.packb({"ack": option["chunk"]}, use_bin_type=True))
+            log.debug("acked chunk %s", option["chunk"])
 
 
 class ForwardServer(socketserver.ThreadingTCPServer):

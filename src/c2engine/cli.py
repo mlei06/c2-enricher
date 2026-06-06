@@ -14,6 +14,8 @@ import argparse
 import gzip
 import io
 import json
+import logging
+import os
 import sys
 from collections.abc import Iterator
 from typing import Any
@@ -64,6 +66,11 @@ def _cmd_replay(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    logging.basicConfig(
+        level=os.environ.get("C2E_LOG_LEVEL", "INFO").upper(),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        stream=sys.stderr,
+    )
     parser = argparse.ArgumentParser(prog="c2-engine")
     sub = parser.add_subparsers(dest="command", required=True)
 
