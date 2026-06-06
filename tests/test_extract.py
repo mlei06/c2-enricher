@@ -56,6 +56,31 @@ def test_served_file_hashes_and_kind(session: SessionIn) -> None:
     assert f.c2_host not in f.callbacks  # serving host excluded from its own callbacks
 
 
+def test_elf_magic_forces_binary_kind(raw: dict) -> None:
+    """An ELF must be file_kind=binary (content NOT inlined) even if its bytes
+    happen to be UTF-8-decodable — magic wins over decodability."""
+    import base64
+    elf = (b"\x7fELF" + bytes([2, 1, 1]) + b"\x00" * 9
+           + (2).to_bytes(2, "little") + (62).to_bytes(2, "little")
+           + b" http://9.9.9.9/x ")  # all-ASCII (would decode as 'script')
+    raw["hp_data"]["files"][0]["content_b64"] = base64.b64encode(elf).decode()
+    served = [o for o in all_observations(SessionIn.model_validate(raw))
+              if o.evidence == "served_file"][0]
+    assert served.file_kind == "binary"
+    assert served.content is None
+    assert served.magic.startswith("ELF")
+    assert "9.9.9.9" in served.callbacks  # mined from strings
+
+
+def test_empty_resolved_ip_becomes_none(raw: dict) -> None:
+    """Native wget sets no resolved IP -> output_stingar emits "" -> must become
+    None (the ES c2_resolved_ip field is typed `ip` and rejects "")."""
+    raw["hp_data"]["files"][0]["resolved_ip"] = ""
+    served = [o for o in all_observations(SessionIn.model_validate(raw))
+              if o.evidence == "served_file"][0]
+    assert served.c2_resolved_ip is None
+
+
 def test_chain_edge(session: SessionIn) -> None:
     obs = all_observations(session)
     callbacks = _by_evidence(obs, "file_callback")

@@ -73,6 +73,14 @@ class EsWriter:
                 if exc.code in (429, 502, 503, 504) and attempt < 4:
                     log.warning("ES %s on %s, retry %s", exc.code, index, attempt + 1)
                     continue
+                if exc.code >= 400:
+                    # Surface ES's rejection reason (mapping conflict, etc.) —
+                    # otherwise a 400 is opaque and undebuggable.
+                    try:
+                        detail = exc.read().decode("utf-8", "replace")[:600]
+                    except Exception:  # noqa: BLE001
+                        detail = "<no body>"
+                    log.error("ES %s indexing into %s: %s", exc.code, index, detail)
                 raise
             except urllib.error.URLError as exc:
                 if attempt < 4:

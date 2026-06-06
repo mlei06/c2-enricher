@@ -56,7 +56,9 @@ def served_files(session: SessionIn) -> list[C2Observation]:
         obs.c2_url = f.url or None
         obs.c2_port = port
         obs.c2_path = path or None
-        obs.c2_resolved_ip = f.resolved_ip
+        # "" (native wget sets no resolved IP) must become None, not "" —
+        # the ES field is typed `ip` and rejects an empty string.
+        obs.c2_resolved_ip = f.resolved_ip or None
         obs.sha256 = f.shasum or None
 
         data = _decode_bytes(f)
@@ -73,14 +75,23 @@ def served_files(session: SessionIn) -> list[C2Observation]:
     return out
 
 
+_BINARY_MAGIC = ("ELF", "PE/", "gzip")
+
+
 def _classify_payload(obs: C2Observation, data: bytes) -> None:
     """Set file_kind, content/interpreter (scripts), callbacks, family."""
-    try:
-        text = data.decode("utf-8")
-        obs.file_kind = "script"
-    except UnicodeDecodeError:
+    # Magic wins: an ELF/PE/gzip is a binary even if it happens to be
+    # UTF-8-decodable (don't inline a binary's bytes as "script content").
+    if obs.magic and obs.magic.startswith(_BINARY_MAGIC):
         obs.file_kind = "binary"
-        text = strings(data)  # mine plaintext URLs/IPs from the binary
+        text = strings(data)
+    else:
+        try:
+            text = data.decode("utf-8")
+            obs.file_kind = "script"
+        except UnicodeDecodeError:
+            obs.file_kind = "binary"
+            text = strings(data)  # mine plaintext URLs/IPs from the binary
 
     if obs.file_kind == "script":
         obs.interpreter = interpreter_of(text)
