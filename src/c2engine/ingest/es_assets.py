@@ -1,4 +1,4 @@
-"""ES index template + ILM policy for ``stingar-c2-*``, as in-package data.
+"""ES index template + ILM policy for ``stingarc2-*``, as in-package data.
 
 Single source of truth for both the engine's startup bootstrap (ingest/es.py)
 and the repo-root ``es/`` copies used by the manual README path. ``geo_point``
@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from typing import Any
 
-ILM_POLICY_NAME = "stingar-c2"
-INDEX_TEMPLATE_NAME = "stingar-c2"
+ILM_POLICY_NAME = "stingarc2"
+INDEX_TEMPLATE_NAME = "stingarc2"
 
-# Daily indices (stingar-c2-YYYY-MM-DD) are time-named, not rollover-aliased —
+# Daily indices (stingarc2-YYYY-MM-DD) are time-named, not rollover-aliased —
 # so the policy is delete-only, keyed on index age. A rollover action here would
 # need index.lifecycle.rollover_alias (absent on daily indices) and would stall
 # ILM with "rollover_alias [null]". (DESIGN.md §2: the ledger is the permanent
@@ -28,7 +28,7 @@ ILM_POLICY: dict[str, Any] = {
 }
 
 INDEX_TEMPLATE: dict[str, Any] = {
-    "index_patterns": ["stingar-c2-*"],
+    "index_patterns": ["stingarc2-*"],
     "priority": 200,
     "template": {
         "settings": {

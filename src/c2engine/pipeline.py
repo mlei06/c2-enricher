@@ -20,7 +20,7 @@ TAG_INBOUND = "stingar.enrichable.cowrie"
 
 #: ES index prefixes (logstash_format, daily rotation) — written by ingest/es.py.
 INDEX_SESSION = "stingar"
-INDEX_C2 = "stingar-c2"
+INDEX_C2 = "stingarc2"
 
 
 @dataclass

@@ -1,9 +1,0 @@
-{
-  "_comment": "ILM for stingar-c2-* — delete-only, keyed on index age. Daily indices (stingar-c2-YYYY-MM-DD) are time-named, NOT rollover-aliased, so a rollover action would stall ILM (rollover_alias null). The engine installs this automatically on startup (EsWriter.ensure_bootstrap); this file is the manual-path copy. Source of truth: src/c2engine/ingest/es_assets.py. PUT _ilm/policy/stingar-c2",
-  "policy": {
-    "phases": {
-      "hot": { "min_age": "0ms", "actions": {} },
-      "delete": { "min_age": "365d", "actions": { "delete": {} } }
-    }
-  }
-}

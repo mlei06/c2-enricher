@@ -8,7 +8,8 @@ transport-only inlined bytes. The C2 layer is complementary, not duplicative:
 Field placement:
   hp_data.*           — iocs_*, banner_*, cred_*, shape_*, playbook_*,
                         payload_refs, hassh, enrich_schema_version (== old proxy)
-  top-level c2_hosts  — the cross-index pivot (matches the ledger's c2_host)
+  top-level c2_host   — the cross-index pivot, SAME name as the ledger's c2_host
+                        (array here, scalar there; a term filter matches both)
   top-level enrich_version — marks the c2-engine generation
 """
 
@@ -30,7 +31,7 @@ def _hp_data_fields(session: SessionIn, ctx: SessionContext) -> dict[str, Any]:
     """The flat hp_data.* enrichment fields (Tier 1+2; timing dropped)."""
     b = ctx.iocs
     fields: dict[str, Any] = {
-        # IoCs — iocs_c2_hosts is the same list as the top-level c2_hosts pivot.
+        # IoCs — iocs_c2_hosts is the same list as the top-level c2_host pivot.
         "iocs_ips": b.ips,
         "iocs_urls": b.urls,
         "iocs_domains": b.domains,
@@ -105,6 +106,8 @@ def enrich_session(
 
     hp.update(_hp_data_fields(session, ctx))
 
-    doc["c2_hosts"] = ctx.iocs.c2_hosts  # cross-index pivot (== hp_data.iocs_c2_hosts)
+    # Top-level c2_host (array) — the cross-index pivot. SAME field name as the
+    # ledger's c2_host so one Kibana filter spans sessions + ledger + payloads.
+    doc["c2_host"] = ctx.iocs.c2_hosts
     doc["enrich_version"] = ENRICH_VERSION
     return doc

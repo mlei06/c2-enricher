@@ -38,8 +38,8 @@ Surface **command-and-control infrastructure** from honeypot traffic:
 | Deployment | **Central service** — Fluentd hop on the STINGAR server; sensors near-stock | Fleet ops, one version, STINGAR UI/Langstroth deployability, backfill; honeypot volume makes central throughput a non-issue |
 | Repo | Separate repo (this one); sensor-side changes stay in the cowrie fork | The service no longer rides on honeypot hosts |
 | Old code | Reference only — rewrite fresh, consult `stingar-enrichment` branch history | Architecture and data model both invalidated |
-| Index strategy | **One new index** (`stingar-c2-*` observation ledger) + additive fields on existing `stingar-*` | Payload = strongest evidence kind, not a separate entity; no transform to operate; staleness impossible by construction |
-| Entity index | **Deferred** — add `stingar-c2-entities` (ES transform + retention_policy) only when the reason layer or a blocklist API needs it | Purely derived state; additive later with zero migration |
+| Index strategy | **One new index** (`stingarc2-*` observation ledger) + additive fields on existing `stingar-*` | Payload = strongest evidence kind, not a separate entity; no transform to operate; staleness impossible by construction |
+| Entity index | **Deferred** — add `stingarc2-entities` (ES transform + retention_policy) only when the reason layer or a blocklist API needs it | Purely derived state; additive later with zero migration |
 | C2 lifecycle | Ledger is permanent; all "active C2" views are time-filtered at query time | C2 IPs live ~3 days; accumulated entities go stale and poison stage |
 | Stage model | GreyNoise 3-stage ladder, chain-propagated stage 2, static instead of sandbox | Evidence-based, names the fact not a score |
 | Binaries | **First-class evidence** — hashes/size/magic/family/strings-callbacks; content inlined for UTF-8 scripts only | Cowrie traffic is Mirai-family ELF-dominated; scripts-only guts the feed |
@@ -64,7 +64,7 @@ flowchart LR
         Fluentd["Fluentd :24224"]
         Engine["c2-engine (stateless)<br/>Fluent forward in, ES out"]
         ES1[("stingar-*<br/>sessions (stock + additive)")]
-        ES2[("stingar-c2-*<br/>C2 evidence ledger")]
+        ES2[("stingarc2-*<br/>C2 evidence ledger")]
         Kibana["Kibana dashboards"]
     end
 
@@ -104,7 +104,7 @@ flowchart LR
  │            └────────────────────────────────┘              │
  │                                                            │
  │   stingar-*    ◀── stock events + enriched sessions        │
- │   stingar-c2-* ◀── ledger rows (new sensors only)         │
+ │   stingarc2-* ◀── ledger rows (new sensors only)         │
  │                                   │                        │
  │   Kibana  ◀── ES queries ─────────┘                        │
  └───────────────────────────────────────────────────────────┘
@@ -130,7 +130,7 @@ flowchart LR
    - **enrich**: GeoIP/ASN (MaxMind, central DB), `self_hosted`,
      `evidence_rank`; session-level `playbook_hash`, `hassh`, `c2_hosts[]`.
    - **write**: session doc (bytes stripped, additive fields) to `stingar-*`;
-     evidence rows to `stingar-c2-*` (direct ES, no Fluentd return hop).
+     evidence rows to `stingarc2-*` (direct ES, no Fluentd return hop).
 6. Sensor checkins (`checkin.py` "sensor" messages) bypass the engine entirely.
 
 ### 3.3 Why central (recorded trade-off)
@@ -169,7 +169,7 @@ additions land inside `files[]` as `content_b64` + `resolved_ip`.
 }
 ```
 
-### 4.2 `stingar-c2-*` (new — the evidence ledger)
+### 4.2 `stingarc2-*` (new — the evidence ledger)
 
 One immutable row per (session, c2_host, evidence). Append-only, time-series,
 ILM-managed (e.g. 1y). The single source of truth; every C2 view derives
@@ -237,7 +237,7 @@ c2-engine/
 │   │   └── session.py         playbook_hash, hassh, c2_hosts[], byte-strip
 │   └── reason/                ── PHASE 2, not in v1 ──
 ├── es/
-│   ├── templates/             index template for stingar-c2-* (geo_point!)
+│   ├── templates/             index template for stingarc2-* (geo_point!)
 │   ├── ilm/                   retention policy
 │   └── dashboards/            exported Kibana saved objects (§7)
 ├── deploy/
@@ -269,11 +269,11 @@ outputs are plain functions until a fourth consumer exists.
 | 3 | `ingest/` hop + Fluentd rules + compose overlay | deployable on a STINGAR server | dev stack: cowrie attack → rows in both indices |
 | 4 | ES template + ILM + sensor-side cowrie changes | end-to-end with real bytes | binary + script downloads produce correct served_file/file_callback rows |
 | 5 | Kibana dashboards (§7) as exported saved objects | the product | click-through U1–U8 works on dev data |
-| 6 | *(trigger-based)* `reason/` + `stingar-c2-entities` transform | intel escalation, blocklist feed | only when triggered |
+| 6 | *(trigger-based)* `reason/` + `stingarc2-entities` transform | intel escalation, blocklist feed | only when triggered |
 
 ## 7. Dashboards
 
-All C2 panels read `stingar-c2-*`; session drill-down reads `stingar-*`.
+All C2 panels read `stingarc2-*`; session drill-down reads `stingar-*`.
 Clicking any `c2_host` value anywhere adds the global filter that drives
 every other panel. Default time window: **last 7 days** (C2 lifetime ~3 days;
 the ledger keeps history for U9-style lookbacks).
@@ -394,7 +394,7 @@ clicking a sha256 answers "which C2s/sensors saw this exact artifact."
 
 | Item | Trigger |
 |---|---|
-| `stingar-c2-entities` (ES transform, retention_policy max_age=30d) | reason layer ships, OR a downstream consumer needs a dumb feed (blocklist API) |
+| `stingarc2-entities` (ES transform, retention_policy max_age=30d) | reason layer ships, OR a downstream consumer needs a dumb feed (blocklist API) |
 | `reason/` intel escalation (known-malware SHA, HASSH toolkits, VT) | needs the entity index as its writable home |
 | Binary sample archive (`stingar-binaries-*`) | someone actually needs the bytes, not just hashes |
 | Sensor-side byte hashing (lighter transport) | Fluentd channel strain in practice |

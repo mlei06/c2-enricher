@@ -3,7 +3,7 @@
 Inbound:  :class:`SessionIn` — a session doc exactly as the cowrie fork's
           ``output_stingar`` plugin emits it (verified against plugin source),
           plus the planned transport-only inlined download bytes.
-Outbound: :class:`C2Observation` — one row in the ``stingar-c2-*`` ledger.
+Outbound: :class:`C2Observation` — one row in the ``stingarc2-*`` ledger.
           :class:`SessionAdditive` — the additive contract for ``stingar-*``.
 """
 

@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 DEFAULT_HOST = "elasticsearch"
 DEFAULT_PORT = 9200
 SESSION_PREFIX = "stingar"
-C2_PREFIX = "stingar-c2"
+C2_PREFIX = "stingarc2"
 
 
 def _es_base() -> str:
@@ -108,7 +108,7 @@ class EsWriter:
         """Idempotently install the ILM policy + index template before first write.
 
         Correctness can't depend on an operator running a README curl: the
-        ``stingar-c2-*`` mapping declares ``geo_point``/``ip`` types that never
+        ``stingarc2-*`` mapping declares ``geo_point``/``ip`` types that never
         dynamic-map, so a missing template silently breaks the C2 map with no
         clean fix but a reindex. PUT is idempotent — safe on every startup.
         """

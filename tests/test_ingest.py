@@ -95,7 +95,7 @@ def test_ensure_bootstrap_puts_policy_then_template(monkeypatch) -> None:
     monkeypatch.setattr(es, "_put", lambda path, doc: calls.append(path))
     es.ensure_bootstrap()
     assert calls == [
-        "_ilm/policy/stingar-c2",
+        "_ilm/policy/stingarc2",
         f"_index_template/{INDEX_TEMPLATE_NAME}",
     ]
 

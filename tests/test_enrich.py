@@ -67,4 +67,4 @@ def test_ledger_and_session_share_one_source(raw: dict) -> None:
     obs = all_observations(session, ctx)
     shell_hosts = {o.c2_host for o in obs if o.evidence == "shell_reference"}
     assert shell_hosts == set(ctx.iocs.c2_hosts)
-    assert process(raw).session_doc["c2_hosts"] == ctx.iocs.c2_hosts
+    assert process(raw).session_doc["c2_host"] == ctx.iocs.c2_hosts

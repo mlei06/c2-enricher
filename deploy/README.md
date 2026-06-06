@@ -23,16 +23,16 @@ $EDITOR stingar.env
 docker compose up -d --build
 ```
 
-The `stingar-c2` ILM policy + index template are installed **automatically** by
+The `stingarc2` ILM policy + index template are installed **automatically** by
 c2-engine on startup (`EsWriter.ensure_bootstrap`, idempotent), so the
 `geo_point`/`ip` mappings exist before the first ledger write — no manual step.
 To seed them by hand (e.g. before the engine first runs):
 
 ```bash
-curl -X PUT "http://localhost:9200/_ilm/policy/stingar-c2" \
-  -H 'Content-Type: application/json' -d @../es/ilm/stingar-c2-policy.json
-curl -X PUT "http://localhost:9200/_index_template/stingar-c2" \
-  -H 'Content-Type: application/json' -d @../es/templates/stingar-c2.json
+curl -X PUT "http://localhost:9200/_ilm/policy/stingarc2" \
+  -H 'Content-Type: application/json' -d @../es/ilm/stingarc2-policy.json
+curl -X PUT "http://localhost:9200/_index_template/stingarc2" \
+  -H 'Content-Type: application/json' -d @../es/templates/stingarc2.json
 ```
 
 ## Tag routing (drop-in)
@@ -40,7 +40,7 @@ curl -X PUT "http://localhost:9200/_index_template/stingar-c2" \
 | Sensor generation | Cowrie emits | Fluentd path | Lands in |
 |-------------------|--------------|--------------|----------|
 | **Stock** | `stingar.events.cowrie` | geo → ES (unchanged) | `stingar-*` |
-| **New (c2)** | `stingar.enrichable.cowrie` | geo → c2-engine → ES | `stingar-*` + `stingar-c2-*` |
+| **New (c2)** | `stingar.enrichable.cowrie` | geo → c2-engine → ES | `stingar-*` + `stingarc2-*` |
 
 Both generations can run side-by-side on the same central server.
 
@@ -50,7 +50,7 @@ Both generations can run side-by-side on the same central server.
 Cowrie output_stingar  →  tag stingar.enrichable.cowrie
 Sensor Fluent Bit      →  fluentd :24224
 fluentd geo filters    →  match stingar.enrichable.*
-c2-engine :24230       →  enrich → ES stingar-* / stingar-c2-*
+c2-engine :24230       →  enrich → ES stingar-* / stingarc2-*
 ```
 
 If c2-engine is down, fluentd buffers enrichable events and retries — they

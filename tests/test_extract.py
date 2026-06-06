@@ -79,13 +79,13 @@ def test_pipeline_additive_and_strip(raw: dict) -> None:
     doc = enriched.session_doc
     hp = doc["hp_data"]
     # top-level pivot + marker
-    assert set(doc["c2_hosts"]) == {"59.96.137.61", "evil.example.com"}
+    assert set(doc["c2_host"]) == {"59.96.137.61", "evil.example.com"}
     assert doc["enrich_version"] == "c2e-1"
     # enrichment written into hp_data (drop-in with the old proxy)
     assert hp["hassh"] == "92674389fa1e47a27ddd8d9b63ecd42b"
     assert len(hp["playbook_hash"]) == 40  # SHA1, matches production
-    assert hp["iocs_c2_hosts"] == doc["c2_hosts"]  # one source, two surfaces
-    assert "5.6.7.8" not in doc["c2_hosts"]  # callback is a ledger row, not a session host
+    assert hp["iocs_c2_hosts"] == doc["c2_host"]  # one source, two surfaces
+    assert "5.6.7.8" not in doc["c2_host"]  # callback is a ledger row, not a session host
     assert hp["enrich_schema_version"] == "1"
     # transport-only bytes stripped; every other field survives
     assert "content_b64" not in hp["files"][0]

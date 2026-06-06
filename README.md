@@ -3,7 +3,7 @@
 Central C2-detection engine for a STINGAR/Cowrie honeypot fleet. Drop-in on
 the STINGAR server: new sensors emit `stingar.enrichable.cowrie`, Fluentd
 forwards only those to c2-engine, which writes enriched sessions and the
-append-only C2 evidence ledger (`stingar-c2-*`) directly to Elasticsearch.
+append-only C2 evidence ledger (`stingarc2-*`) directly to Elasticsearch.
 Stock sensors keep the unchanged `stingar.events.*` path.
 
 **Read [DESIGN.md](DESIGN.md) first** — it is the founding design document:
@@ -24,7 +24,7 @@ deploy/         full STINGAR + c2-engine compose, fluent.conf, env template
 tests/          golden session fixtures → expected evidence rows
 ```
 
-`reason/` (intel escalation) and the `stingar-c2-entities` rollup are
+`reason/` (intel escalation) and the `stingarc2-entities` rollup are
 **phase 2, trigger-gated** — see DESIGN.md §9 before adding either.
 
 ## Development

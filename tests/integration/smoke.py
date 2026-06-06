@@ -9,7 +9,7 @@ Exercises every seam the ingest path owns:
   * ForwardServer parses a real PackedForward frame (tag-first, chunk option)
   * the engine acks the chunk (at-least-once handshake)
   * a session with inlined bytes produces shell_reference + served_file +
-    file_callback rows in stingar-c2-* and an enriched session in stingar-*
+    file_callback rows in stingarc2-* and an enriched session in stingar-*
   * c2_geo is mapped as geo_point (template applied, not dynamic)
 """
 
@@ -115,17 +115,17 @@ def main() -> None:
     # --- give ES a moment, then refresh ---------------------------------
     time.sleep(1.0)
     today = datetime.now(UTC).strftime("%Y-%m-%d")
-    urllib.request.urlopen(f"{ES}/stingar-c2-*,stingar-*/_refresh", timeout=15).read()
+    urllib.request.urlopen(f"{ES}/stingarc2-*,stingar-*/_refresh", timeout=15).read()
 
     # --- assert: geo_point mapping on the ledger index ------------------
-    mapping = _es_get(f"/stingar-c2-{today}/_mapping")
+    mapping = _es_get(f"/stingarc2-{today}/_mapping")
     props = next(iter(mapping.values()))["mappings"]["properties"]
     if props.get("c2_geo", {}).get("type") != "geo_point":
         _fail(f"c2_geo not geo_point: {props.get('c2_geo')}")
-    print("[4/6] mapping: stingar-c2-* c2_geo is geo_point (template applied)")
+    print("[4/6] mapping: stingarc2-* c2_geo is geo_point (template applied)")
 
     # --- assert: ledger rows --------------------------------------------
-    led = _es_get("/stingar-c2-*/_search?size=50&q=session_id:smoke-session-1")
+    led = _es_get("/stingarc2-*/_search?size=50&q=session_id:smoke-session-1")
     rows = [h["_source"] for h in led["hits"]["hits"]]
     by_ev: dict[str, list] = {}
     for r in rows:
@@ -145,16 +145,16 @@ def main() -> None:
 
     # --- assert: enriched session, bytes stripped -----------------------
     sess = _es_get("/stingar-*/_search?q=hp_data.session:smoke-session-1")
-    shits = [h["_source"] for h in sess["hits"]["hits"] if not h["_index"].startswith("stingar-c2")]
+    shits = [h["_source"] for h in sess["hits"]["hits"] if not h["_index"].startswith("stingarc2")]
     if not shits:
         _fail("enriched session not found in stingar-*")
     doc = shits[0]
     hp = doc["hp_data"]
     # session c2_hosts = command-referenced hosts (the callback 5.6.7.8 is a
     # ledger-only chain row, not a session host).
-    if set(doc.get("c2_hosts", [])) != {"59.96.137.61", "evil.example.com"}:
-        _fail(f"c2_hosts wrong: {doc.get('c2_hosts')}")
-    if hp.get("iocs_c2_hosts") != doc.get("c2_hosts"):
+    if set(doc.get("c2_host", [])) != {"59.96.137.61", "evil.example.com"}:
+        _fail(f"c2_hosts wrong: {doc.get('c2_host')}")
+    if hp.get("iocs_c2_hosts") != doc.get("c2_host"):
         _fail("iocs_c2_hosts != c2_hosts (should share one source)")
     if "content_b64" in hp["files"][0]:
         _fail("content_b64 not stripped from session")

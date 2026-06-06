@@ -1,4 +1,4 @@
-"""One row in the ``stingar-c2-*`` evidence ledger (DESIGN.md §4.2).
+"""One row in the ``stingarc2-*`` evidence ledger (DESIGN.md §4.2).
 
 Append-only and immutable: a row states a fact observed in one session, never
 a verdict. Stage is *derived at query time* as max(evidence_rank) per

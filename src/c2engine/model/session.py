@@ -149,7 +149,7 @@ class SessionAdditive(BaseModel):
     pivots — the nested original is untouched.
     """
 
-    c2_hosts: list[str] = []
+    c2_host: list[str] = []  # array; same field name as the ledger's c2_host
     playbook_hash: str | None = None
     hassh: str | None = None
     enrich_version: str = "1"
