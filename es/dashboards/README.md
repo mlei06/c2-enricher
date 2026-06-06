@@ -1,15 +1,28 @@
-# Kibana saved objects — C2 Command Center
+# Kibana saved objects — C2 dashboards
 
-`c2-command-center.ndjson` is the exported, self-contained dashboard (Kibana
-8.19) — built and verified live on the STINGAR Kibana. Import it on any
-matching stack via **Stack Management → Saved Objects → Import**, or:
+Two exported, self-contained dashboards (Kibana 8.19), built and verified live
+on the STINGAR Kibana (DESIGN.md §7):
+
+| File | Dashboard | Focus |
+|---|---|---|
+| `c2-command-center.ndjson` | **C2 Command Center** | C2-host-first: map of the threat, click a C2 → its honeypots/src_ips/payloads/sessions |
+| `c2-payload-explorer.ndjson` | **Payload Explorer** | file-first: families over time, one row per sha256, cross-sensor dedupe, script source |
+
+(DESIGN §7's "C2 Detail" is **not** a separate dashboard — it's the Command
+Center's post-click state once a `c2_host: X` filter is pinned.)
+
+Import on any matching stack via **Stack Management → Saved Objects → Import**, or:
 
 ```bash
 curl -s -X POST "<kibana>/api/saved_objects/_import?overwrite=true" \
   -H "kbn-xsrf:true" --form file=@c2-command-center.ndjson
+curl -s -X POST "<kibana>/api/saved_objects/_import?overwrite=true" \
+  -H "kbn-xsrf:true" --form file=@c2-payload-explorer.ndjson
 ```
 (On the STINGAR server Kibana is under the `/kibana` basePath, e.g.
 `http://localhost:5601/kibana/...`.)
+
+## C2 Command Center
 
 ## What's in it (11 objects)
 - **Data views**: `c2-ledger` (`stingarc2-*`, timeField `ts`) and `c2-sessions`
@@ -33,9 +46,22 @@ session panel — because both indices share the `c2_host` field. That answers:
 which honeypots it hit, which src_ips called it, what it served, and the raw
 sessions, in one click.
 
+## Payload Explorer (`c2-payload-explorer.ndjson`)
+File-first, over the ledger `served_file` rows (default window: last 30 days):
+- **Families Over Time** — stacked `date_histogram(ts)` split by `family`
+- **Distinct Files by Family** — `cardinality(sha256)` by family
+- **File Catalog** — one row per `sha256` with count, distinct C2s, distinct
+  sensors, latest seen, family. **Click a sha256 → Filter for value** to see
+  every C2/sensor that served that exact artifact (cross-sensor dedupe).
+- **Script Source** — `file_kind:script` rows; the `content` column is the
+  script itself.
+
+Generator: `build_payload_explorer.py`.
+
 ## Regenerate / edit
-`build_dash.py` produces the importable NDJSON (agg-based visualizations —
-stable across Kibana 8.x, unlike hand-authored Lens). Edit it, then:
+`build_dash.py` (Command Center) and `build_payload_explorer.py` produce the
+importable NDJSON (agg-based visualizations — stable across Kibana 8.x, unlike
+hand-authored Lens). Edit, then:
 ```bash
 python build_dash.py            # writes /tmp/c2-dash.ndjson
 curl ... _import?overwrite=true --form file=@/tmp/c2-dash.ndjson
