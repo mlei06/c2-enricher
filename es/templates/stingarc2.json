@@ -8,6 +8,26 @@
       "index.lifecycle.name": "stingarc2"
     },
     "mappings": {
+      "_meta": {
+        "owner": "c2-engine",
+        "description": "C2 evidence ledger: one immutable row per (session, c2_host, evidence). Drill-down surface; aggregate to c2-entities for per-C2 summaries.",
+        "fields": {
+          "c2_host": "C2 host/IP the attacker referenced or fetched from (THE pivot; same field name on every index)",
+          "c2_host_kind": "ip | domain",
+          "c2_resolved_ip": "attack-time DNS resolution of c2_host (domains)",
+          "evidence": "how this C2 was observed: shell_reference | served_file | file_callback",
+          "evidence_rank": "0=referenced only, 1=served us a file, 2=host found inside served malware (chain)",
+          "self_hosted": "true when c2_host == src_ip (loader-is-scanner)",
+          "file_kind": "script | binary (served_file rows only)",
+          "family": "rules-based malware family, category.family/variant e.g. trojan.mirai/mozi",
+          "content": "full script source (served_file scripts only; binaries omit it)",
+          "callbacks": "onward hosts found inside this file (script text / binary strings)",
+          "c2_via_sha256": "file_callback rows: which served file (sha256) revealed this host",
+          "src_ip": "attacker source IP",
+          "sensor_hostname": "honeypot that observed it",
+          "ts": "event time (session close)"
+        }
+      },
       "dynamic": false,
       "properties": {
         "schema_version": { "type": "keyword" },

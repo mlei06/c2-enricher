@@ -36,6 +36,33 @@ INDEX_TEMPLATE: dict[str, Any] = {
             "index.lifecycle.name": ILM_POLICY_NAME,
         },
         "mappings": {
+            # _meta documents the index for humans AND for LLM agents — Agent
+            # Builder / our MCP agent read it via get_index_mapping to choose
+            # fields. Free-form (no size limit, unlike field-level `meta`).
+            "_meta": {
+                "owner": "c2-engine",
+                "description": (
+                    "C2 evidence ledger: one immutable row per (session, c2_host, "
+                    "evidence). Drill-down surface; aggregate to c2-entities for "
+                    "per-C2 summaries."
+                ),
+                "fields": {
+                    "c2_host": "C2 host/IP the attacker referenced or fetched from (THE pivot; same field name on every index)",
+                    "c2_host_kind": "ip | domain",
+                    "c2_resolved_ip": "attack-time DNS resolution of c2_host (domains)",
+                    "evidence": "how this C2 was observed: shell_reference | served_file | file_callback",
+                    "evidence_rank": "0=referenced only, 1=served us a file, 2=host found inside served malware (chain)",
+                    "self_hosted": "true when c2_host == src_ip (loader-is-scanner)",
+                    "file_kind": "script | binary (served_file rows only)",
+                    "family": "rules-based malware family, category.family/variant e.g. trojan.mirai/mozi",
+                    "content": "full script source (served_file scripts only; binaries omit it)",
+                    "callbacks": "onward hosts found inside this file (script text / binary strings)",
+                    "c2_via_sha256": "file_callback rows: which served file (sha256) revealed this host",
+                    "src_ip": "attacker source IP",
+                    "sensor_hostname": "honeypot that observed it",
+                    "ts": "event time (session close)",
+                },
+            },
             "dynamic": False,
             "properties": {
                 "schema_version": {"type": "keyword"},
@@ -96,6 +123,32 @@ ENTITIES_TEMPLATE: dict[str, Any] = {
     "template": {
         "settings": {"number_of_shards": 1},
         "mappings": {
+            "_meta": {
+                "owner": "c2-engine reason layer",
+                "description": (
+                    "One decaying doc per C2 (_id = c2_host), rebuilt by the reason "
+                    "job. PRIMARY ask-me-anything surface for analysts: which C2s, "
+                    "how many, what stage. Decays 30d after last_seen (C2s live "
+                    "~3d). Drill into stingarc2-* for the underlying evidence rows."
+                ),
+                "fields": {
+                    "c2_host": "the C2 host/IP (doc id; same field name on every index)",
+                    "stage": "FINAL stage: unconfirmed | stage1_serving | stage2_c2 (evidence floor, raised by intel; never demoted)",
+                    "evidence_stage": "runtime: stage from max_evidence_rank alone, before intel",
+                    "stage_signals": "why it's staged: callback_in_malware | known_malware | hassh_toolkit | virustotal",
+                    "families": "distinct malware families this C2 served (e.g. trojan.mirai/mozi)",
+                    "max_evidence_rank": "strongest evidence: 0=referenced, 1=served a file, 2=found in malware",
+                    "first_seen": "earliest sighting",
+                    "last_seen": "most recent sighting (decay clock)",
+                    "sighting_count": "ledger rows for this C2",
+                    "sensor_count": "distinct honeypots that saw it",
+                    "src_ip_count": "distinct attacker IPs that referenced it",
+                    "distinct_files": "distinct served-file sha256s",
+                    "latest.c2_asn_org": "latest ASN org (latest.c2_country, latest.c2_host_kind likewise)",
+                    "max_vt_ratio": "highest VirusTotal detection ratio across served files (M3)",
+                    "_naming_note": "the session index stingar-* uses sensor.hostname + @timestamp; ledger+entities use sensor_hostname + ts (pass-through invariant: we don't rewrite stock session fields)",
+                },
+            },
             "dynamic": True,
             "runtime": {
                 "evidence_stage": {

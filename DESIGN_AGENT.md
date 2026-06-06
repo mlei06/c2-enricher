@@ -81,17 +81,28 @@ tool using `MATCH`/semantic query for fuzzy "looks like a loader" intent.)
 - The server never mutates; it shares the ledger's immutability guarantee.
 
 ## 6. Data-model prerequisites (version-independent — do these regardless)
-These help our own agent AND a future Agent Builder equally:
-1. **Field `_meta` descriptions** on the mappings — explain the enums (`evidence`,
-   `stage`, `evidence_rank` 0/1/2, `file_kind`) so the LLM picks fields well.
-2. **Flatten `nested` arrays** — ES|QL handles `nested` poorly. Audit `files[]`,
-   `callbacks[]`, `commands[]`; keep arrays as flat `keyword[]`. (`callbacks` is
-   already flat keyword[].)
-3. **Naming consistency** — standardize on `sensor_hostname` (`stingar-*` uses
-   `sensor.hostname`) and `@timestamp` vs `ts` across indices.
-4. **`c2-entities` is the primary surface** ✓ (already built).
-5. Optional: `semantic_text` + ELSER over `content` (paid tier) for fuzzy
-   payload-behavior search.
+These help our own agent AND a future Agent Builder equally. **Status: done
+2026-06-06** (except the optional semantic_text item).
+1. **Field `_meta` descriptions** ✅ — rich `_meta` blocks on both the ledger
+   (`stingarc2-*`) and entity (`c2-entities`) templates: a per-index description +
+   a `fields` legend explaining every field and enum (`evidence`, `stage`,
+   `evidence_rank` 0/1/2, `file_kind`). `_meta` is free-form (no 50-char limit
+   that field-level `meta` imposes) and is returned by `get_index_mapping`, which
+   is what an LLM reads to choose fields. In `es_assets.py` + the `es/` copy.
+2. **Flatten `nested` arrays** ✅ (audited, non-issue) — live audit of all three
+   index patterns found **zero** `nested`-typed fields. Our templates use flat
+   `keyword[]` (`callbacks`); the session index's arrays dynamic-map to `object`,
+   not `nested`. Nothing to flatten.
+3. **Naming consistency** ✅ (resolved by documenting, not rewriting) — our own
+   indices (ledger + entities) are internally consistent: `sensor_hostname` + `ts`.
+   The stock session index `stingar-*` uses `sensor.hostname` + `@timestamp`. We
+   deliberately do **not** rewrite those — the pass-through invariant (we never
+   mutate stock STINGAR fields) takes precedence. The difference is recorded in
+   the `c2-entities` `_meta._naming_note` so the agent/tools know to normalize at
+   query time, not in storage.
+4. **`c2-entities` is the primary surface** ✅ (already built).
+5. Optional (deferred): `semantic_text` + ELSER over `content` (paid tier) for
+   fuzzy payload-behavior search.
 
 ## 7. Migration to Elastic Agent Builder (if we go 9.4+/Enterprise)
 - Re-register each tool's ES|QL body as a native Agent Builder `type: esql` tool

@@ -110,6 +110,14 @@ def test_entities_template_shape() -> None:
     assert rt["evidence_stage"]["type"] == "keyword"
 
 
+def test_templates_carry_meta_docs() -> None:
+    # _meta documents fields for humans AND LLM agents (read via get_index_mapping).
+    from c2engine.ingest.es_assets import ENTITIES_TEMPLATE, INDEX_TEMPLATE
+    for tmpl in (INDEX_TEMPLATE, ENTITIES_TEMPLATE):
+        meta = tmpl["template"]["mappings"]["_meta"]
+        assert meta["description"] and meta["fields"]["c2_host"]
+
+
 # --- handler failure semantics (at-least-once) ----------------------------
 
 class _RecordingES:
