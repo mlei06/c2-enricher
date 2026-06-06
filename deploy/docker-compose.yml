@@ -77,6 +77,11 @@ services:
     environment:
       C2E_ES_HOST: elasticsearch
       C2E_ES_PORT: "9200"
+      # M3 VirusTotal (off unless VT_API_KEY is set in the env/stingar.env).
+      # Public key: leave C2E_VT_MAX_PER_RUN<=4 (== VT 4/min). Cached in c2-vt.
+      VT_API_KEY: "${VT_API_KEY:-}"
+      C2E_VT_MAX_PER_RUN: "${C2E_VT_MAX_PER_RUN:-4}"
+      C2E_VT_MIN_MALICIOUS: "${C2E_VT_MIN_MALICIOUS:-1}"
     depends_on:
       elasticsearch:
         condition: service_healthy

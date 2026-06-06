@@ -19,6 +19,8 @@ from c2engine.ingest.es_assets import (
     ILM_POLICY_NAME,
     INDEX_TEMPLATE,
     INDEX_TEMPLATE_NAME,
+    VT_TEMPLATE,
+    VT_TEMPLATE_NAME,
 )
 
 log = logging.getLogger(__name__)
@@ -140,8 +142,10 @@ class EsWriter:
         # entity index mappings (geo_point + evidence_stage runtime); the reason
         # job is the sole writer of this index.
         self._put(f"_index_template/{ENTITIES_TEMPLATE_NAME}", ENTITIES_TEMPLATE)
-        log.info("ES bootstrap ok: ILM + index templates (%s, %s) installed",
-                 INDEX_TEMPLATE_NAME, ENTITIES_TEMPLATE_NAME)
+        # VirusTotal verdict cache (M3); reason job is the sole writer.
+        self._put(f"_index_template/{VT_TEMPLATE_NAME}", VT_TEMPLATE)
+        log.info("ES bootstrap ok: ILM + index templates (%s, %s, %s) installed",
+                 INDEX_TEMPLATE_NAME, ENTITIES_TEMPLATE_NAME, VT_TEMPLATE_NAME)
 
     def _send(self, method: str, path: str, body: dict[str, Any] | None = None) -> tuple[int, str]:
         """One-shot request returning (status, body) — tolerates 4xx (caller decides)."""

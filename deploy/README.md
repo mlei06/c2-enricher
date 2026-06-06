@@ -56,6 +56,25 @@ c2-engine :24230       →  enrich → ES stingar-* / stingarc2-*
 If c2-engine is down, fluentd buffers enrichable events and retries — they
 delay, never drop (DESIGN.md §8).
 
+## VirusTotal enrichment (M3, optional)
+
+The reason job can enrich served-file hashes with VirusTotal verdicts. It's
+**off by default** — set `VT_API_KEY` (in `stingar.env` or the host env) to
+enable it:
+
+```bash
+echo 'VT_API_KEY=<your-vt-key>' >> stingar.env
+docker compose up -d c2reason
+```
+
+Verdicts cache fleet-wide in the `c2-vt` index (one lookup per distinct file
+until it goes stale at 30 d), so a single key easily covers the fleet. With a
+**public** key keep `C2E_VT_MAX_PER_RUN<=4` (matches VT's 4 req/min; the job
+sleeps 5 min between runs). A file with `vt_malicious >= C2E_VT_MIN_MALICIOUS`
+(default 1) escalates its C2 to `stage2_c2` with a `virustotal` signal; entities
+gain `max_vt_ratio` + `vt_families`. VT being slow/over-budget never blocks —
+the verdict just fills in on a later pass.
+
 ## Blocklist / alert feed (M4)
 
 The `c2feed` service serves a read-only feed over the decaying `c2-entities`

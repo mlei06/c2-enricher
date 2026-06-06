@@ -50,7 +50,7 @@ global-sensor scale, a bespoke console.
       │   - VirusTotal by sha256 (cached, rate-limited)  → vt_ratio, vt_families
       │   writes ONLY to entity docs (+ a vt cache index)
       │
- stingarc2-vt  (sha256 → VT verdict cache, fleet-wide)    [M3]
+ c2-vt        (sha256 → VT verdict cache, fleet-wide)    [M3]
       │
       ▼ blocklist/alert feed                              [M4]
    GET /feed (engine)  or  Kibana alert  or  CIF push
@@ -111,19 +111,26 @@ escalate), `stage_signals[]`, `families[]`, `attributed_toolkit`,
 the ledger. **Exit:** entities carry an escalating `stage` + `families[]` +
 `stage_signals`; matches GreyNoise's per-callback stage UX.
 
-### M3 — VirusTotal enrichment (cached, rate-limited, optional)
+### M3 — VirusTotal enrichment (cached, rate-limited, optional) ✅ done 2026-06-06
 
 In the reason job, for each distinct served-file `sha256` lacking a fresh
 verdict: look up VT, cache fleet-wide.
 
-- **Cache index** `stingarc2-vt` (id = sha256): `{sha256, vt_malicious,
-  vt_total, vt_ratio, vt_families[], checked_at}`. One lookup per distinct file,
-  ever (until staleness window) — dedupes across the whole fleet.
-- **Rate limit**: token bucket (VT public = 4/min, 500/day); `VT_API_KEY` env,
-  **disabled by default**. Budget exhausted → skip, try next pass (never block).
-- Overlay onto entity: `max_vt_ratio`, `vt_families[]`; `vt_ratio ≥ threshold`
-  → escalate stage + `stage_signals += virustotal`.
-- **Exit:** the dashboard file/entity view shows a VT detection ratio (GreyNoise's
+- **Cache index** `c2-vt` (id = sha256): `{sha256, vt_found, vt_malicious,
+  vt_suspicious, vt_total, vt_ratio, vt_families[], checked_at}`. Named **outside**
+  the `stingarc2-*` glob (like `c2-entities`) to avoid template collision. One
+  lookup per distinct file until its verdict goes stale (`VT_TTL_DAYS=30`) —
+  dedupes across the whole fleet; `vt_found=false` records VT-unknown files so we
+  don't re-query them.
+- **Bounded, never blocks**: per-run cap (`C2E_VT_MAX_PER_RUN`, default 4 ==
+  VT public 4/min — the loop sleeps minutes between runs); `VT_API_KEY` env,
+  **disabled by default** (no key → no-op). Budget exhausted / 429 / error →
+  skip, try next pass. Cache + low new-file volume keep it under VT's 500/day.
+- Overlay onto entity (in `c2engine/reason/vt.py`): `max_vt_ratio`, `vt_families[]`;
+  `max_vt_malicious ≥ C2E_VT_MIN_MALICIOUS` (default 1) → escalate `stage` to
+  stage2_c2 + `stage_signals += virustotal`. Pure `summarize_vt`/`apply_vt`
+  (unit-tested); IO isolated in `VtClient`/`VtResolver`.
+- **Exit:** ✅ the entity/file view can show a VT detection ratio (GreyNoise's
   "50 / 77 engines") for files VT knows; unknown files simply omit it.
 
 ### M4 — Blocklist / alert feed (the actionable output) ✅ done 2026-06-06
@@ -164,9 +171,10 @@ now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
 
 - `c2-entities` — §3 M1/M2/M3 fields. Index template + ILM via
   `ensure_bootstrap`. `c2_geo: geo_point`, `*_seen: date`, ints as `long/byte`.
-- `stingarc2-vt` — `{sha256 keyword, vt_malicious int, vt_total int, vt_ratio
-  float, vt_families keyword[], checked_at date}`. ILM: re-lookup window (e.g.
-  30 d) via `checked_at`.
+- `c2-vt` — `{sha256 keyword, vt_found bool, vt_malicious int, vt_suspicious int,
+  vt_total int, vt_ratio float, vt_families keyword[], checked_at date}`. Named
+  outside the `stingarc2-*` glob (template-collision avoidance). Re-lookup window
+  `VT_TTL_DAYS=30` enforced in code via `checked_at`.
 - Stage enum everywhere: `unconfirmed | stage1_serving | stage2_c2` (rank 0/1/2).
   `stage` (final, reason) ≥ `evidence_stage` (transform). Reason never *demotes*.
 

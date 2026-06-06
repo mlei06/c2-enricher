@@ -198,3 +198,53 @@ ENTITIES_TEMPLATE: dict[str, Any] = {
 
 # How long an entity lives past its last sighting (decaying view; C2s ~3d).
 ENTITY_RETENTION_DAYS = 30
+
+
+# --- M3: VirusTotal verdict cache (one doc per sha256, fleet-wide) ------------
+# Named OUTSIDE the stingarc2-* glob (like c2-entities) so its template never
+# collides with the ledger template at the same priority. The reason job is the
+# sole writer; one VT lookup per distinct file ever (until the verdict goes stale
+# past VT_TTL_DAYS), deduped across the whole fleet.
+VT_INDEX = "c2-vt"
+VT_TEMPLATE_NAME = "c2-vt"
+VT_TTL_DAYS = 30  # re-look-up a sha only after its verdict is this old
+
+VT_TEMPLATE: dict[str, Any] = {
+    "index_patterns": [VT_INDEX],
+    "priority": 200,
+    "template": {
+        "settings": {"number_of_shards": 1},
+        "mappings": {
+            "_meta": {
+                "owner": "c2-engine reason layer",
+                "description": (
+                    "VirusTotal verdict cache, one doc per served-file sha256 "
+                    "(_id = sha256), fleet-wide. Deduplicates VT lookups; entities "
+                    "read max_vt_ratio / vt_families from here. vt_found=false means "
+                    "VT had no record of the file at checked_at."
+                ),
+                "fields": {
+                    "sha256": "served-file hash (doc id)",
+                    "vt_found": "true if VT knew the file",
+                    "vt_malicious": "engines flagging malicious",
+                    "vt_suspicious": "engines flagging suspicious",
+                    "vt_total": "engines that scanned it",
+                    "vt_ratio": "vt_malicious / vt_total (0..1)",
+                    "vt_families": "VT popular threat names/labels",
+                    "checked_at": "when this verdict was fetched (staleness clock)",
+                },
+            },
+            "dynamic": False,
+            "properties": {
+                "sha256": {"type": "keyword"},
+                "vt_found": {"type": "boolean"},
+                "vt_malicious": {"type": "integer"},
+                "vt_suspicious": {"type": "integer"},
+                "vt_total": {"type": "integer"},
+                "vt_ratio": {"type": "float"},
+                "vt_families": {"type": "keyword"},
+                "checked_at": {"type": "date"},
+            },
+        },
+    },
+}

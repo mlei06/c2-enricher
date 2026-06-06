@@ -12,11 +12,18 @@ import datetime
 import importlib.resources
 import json
 import logging
+import os
 import time
 from typing import Any
 
 from c2engine.ingest.es import EsWriter
 from c2engine.ingest.es_assets import ENTITIES_INDEX, ENTITY_RETENTION_DAYS
+from c2engine.reason.vt import (
+    DEFAULT_MIN_MALICIOUS,
+    VtResolver,
+    apply_vt,
+    summarize_vt,
+)
 
 log = logging.getLogger(__name__)
 
@@ -61,6 +68,13 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
     nowiso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     since = (now - datetime.timedelta(days=ENTITY_RETENTION_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
     known = load_known_shas()
+    # VT (M3): cache-first, budget-bounded, no-op without VT_API_KEY. One resolver
+    # per pass so the per-run lookup budget is shared across all entities.
+    vt = VtResolver(es, now=now)
+    try:
+        min_mal = int(os.environ.get("C2E_VT_MIN_MALICIOUS", str(DEFAULT_MIN_MALICIOUS)))
+    except ValueError:
+        min_mal = DEFAULT_MIN_MALICIOUS
 
     updated = 0
     after: dict[str, Any] | None = None
@@ -96,6 +110,8 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
             fams = [x["key"] for x in b["families"]["buckets"]]
             shas = [x["key"] for x in b["shas"]["buckets"]]
             metrics = (b["latest"]["top"][0]["metrics"] if b["latest"]["top"] else {})
+            overlay = compute_overlay(max_rank, fams, shas, known)
+            overlay = apply_vt(overlay, summarize_vt(vt.verdicts_for(shas)), min_mal)
             doc: dict[str, Any] = {
                 "c2_host": host,
                 "first_seen": b["first_seen"]["value_as_string"],
@@ -108,7 +124,7 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
                 "latest": {k: metrics.get(k) for k in _KW if metrics.get(k) is not None},
                 "reason_version": REASON_VERSION,
                 "updated_at": nowiso,
-                **compute_overlay(max_rank, fams, shas, known),
+                **overlay,
             }
             if b["asn"]["value"] is not None:
                 doc["c2_asn"] = int(b["asn"]["value"])
@@ -121,8 +137,9 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
             break
 
     expired = es.delete_by_query(ENTITIES_INDEX, {"query": {"range": {"last_seen": {"lt": since}}}})
-    log.info("reason: %d entities upserted, %d expired (known-malware shas: %d)",
-             updated, expired, len(known))
+    log.info("reason: %d entities upserted, %d expired (known-malware shas: %d, "
+             "vt lookups: %d, vt enabled: %s)",
+             updated, expired, len(known), vt.looked_up, vt.client.enabled)
     return updated
 
 
