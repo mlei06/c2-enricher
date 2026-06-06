@@ -3,6 +3,11 @@
 > Central C2-detection engine for a STINGAR/Cowrie honeypot fleet.
 > Successor to the `enrichment/` package on the cowrie fork's `stingar-enrichment`
 > branch (abandoned 2026-06-04; reference-only via that branch's git history).
+>
+> Companion docs: **DESIGN_PARITY.md** (closing the GreyNoise gaps — entity
+> rollup, reason layer, VirusTotal, blocklist) · **DESIGN_AGENT.md** (analyst
+> conversational access — our own MCP+ES|QL agent now, Elastic Agent Builder if
+> we reach 9.4+/Enterprise).
 
 ## 1. Mission
 
