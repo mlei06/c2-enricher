@@ -171,6 +171,8 @@ now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
 | VT placement | reason job, cached, off the hot path, default-off | VT rate limits + latency must never touch ingestion |
 | Reason cadence | periodic batch (`--interval`), not per-event | idempotent, cheap, re-stageable; honeypot volume doesn't need streaming |
 | Blocklist freshness | derive from the already-decaying entity index | correct-by-construction; no separate expiry logic |
+| **UI surface** | **Kibana** (M1–M5 all render in Kibana) | matches STINGAR's own Attack-Analysis convention; free; gives transforms/Maps/alerting. The parity work is backend-first/UI-agnostic — `stingarc2-entities` is the contract, the frontend is swappable |
+| Bespoke "Callback tab" UI | **trigger-gated M6** | build a thin app (or stingar-ui tab) over `stingarc2-entities` ONLY if Kibana's detail-page/inline-action limits actually bite. Nothing wasted — same entity index |
 
 ## 6. Non-goals (explicit)
 - **Sandbox detonation / behavioral Stage 2** — out of scope; our Stage 2 stays
