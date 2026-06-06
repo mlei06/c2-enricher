@@ -43,7 +43,7 @@ global-sensor scale, a bespoke console.
       │
       │ ES continuous transform (group_by c2_host, retention 30d)
       ▼
- stingarc2-entities  (one upserted doc per C2, decaying)  [M1]
+ c2-entities  (one upserted doc per C2, decaying)  [M1]
       ▲
       │ reason job (periodic, out-of-band)                [M2/M3]
       │   - known-malware SHA / HASSH-toolkit  → stage_signals, escalate stage
@@ -67,7 +67,7 @@ Continuous **ES transform** over `stingarc2-*`, `group_by: c2_host`, with
 `retention_policy { field: last_seen, max_age: 30d }`. Pure aggregations
 (transforms can't call out — intel comes in M2):
 
-`stingarc2-entities` doc (id = `c2_host`):
+`c2-entities` doc (id = `c2_host`):
 ```jsonc
 {
   "c2_host": "45.137.21.9", "c2_host_kind": "ip",
@@ -87,7 +87,7 @@ Continuous **ES transform** over `stingarc2-*`, `group_by: c2_host`, with
   2→stage2_c2. Computed in the transform via a `bucket_script`/runtime field, or
   written by M2 (simpler: M2 owns the final `stage`; transform writes the raw
   `max_evidence_rank` + `evidence_stage`).
-- Index template + ILM for `stingarc2-entities` (geo_point on `c2_geo`),
+- Index template + ILM for `c2-entities` (geo_point on `c2_geo`),
   installed by `ensure_bootstrap` like the ledger.
 - **Exit:** transform runs continuously; one decaying doc per active C2; the
   Command Center "Top C2s" + the (deferred) Maps layer read this index.
@@ -128,7 +128,7 @@ verdict: look up VT, cache fleet-wide.
 
 ### M4 — Blocklist / alert feed (the actionable output)
 
-Read `stingarc2-entities` where `stage ≥ stage1_serving AND last_seen ≥
+Read `c2-entities` where `stage ≥ stage1_serving AND last_seen ≥
 now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
 
 - **Primary**: a tiny HTTP endpoint in the engine (`GET /feed/blocklist.txt`,
@@ -144,7 +144,7 @@ now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
 - **Family classifier**: harvest markers from the `trojan.elf/<arch>`
   unclassified bucket as real captures accumulate; optionally add `yara-python`
   rules in the reason layer (heavier, gated on need).
-- **Maps geo layer** on `stingarc2-entities` (styled by `stage`) — author in the
+- **Maps geo layer** on `c2-entities` (styled by `stage`) — author in the
   Kibana UI once real attacker IPs with geo flow, then export to
   `es/dashboards/`.
 - **Entity detail dashboard** (GreyNoise's callback detail page): filtered by
@@ -153,7 +153,7 @@ now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
 
 ## 4. Data contracts (new)
 
-- `stingarc2-entities` — §3 M1/M2/M3 fields. Index template + ILM via
+- `c2-entities` — §3 M1/M2/M3 fields. Index template + ILM via
   `ensure_bootstrap`. `c2_geo: geo_point`, `*_seen: date`, ints as `long/byte`.
 - `stingarc2-vt` — `{sha256 keyword, vt_malicious int, vt_total int, vt_ratio
   float, vt_families keyword[], checked_at date}`. ILM: re-lookup window (e.g.
@@ -171,8 +171,8 @@ now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
 | VT placement | reason job, cached, off the hot path, default-off | VT rate limits + latency must never touch ingestion |
 | Reason cadence | periodic batch (`--interval`), not per-event | idempotent, cheap, re-stageable; honeypot volume doesn't need streaming |
 | Blocklist freshness | derive from the already-decaying entity index | correct-by-construction; no separate expiry logic |
-| **UI surface** | **Kibana** (M1–M5 all render in Kibana) | matches STINGAR's own Attack-Analysis convention; free; gives transforms/Maps/alerting. The parity work is backend-first/UI-agnostic — `stingarc2-entities` is the contract, the frontend is swappable |
-| Bespoke "Callback tab" UI | **trigger-gated M6** | build a thin app (or stingar-ui tab) over `stingarc2-entities` ONLY if Kibana's detail-page/inline-action limits actually bite. Nothing wasted — same entity index |
+| **UI surface** | **Kibana** (M1–M5 all render in Kibana) | matches STINGAR's own Attack-Analysis convention; free; gives transforms/Maps/alerting. The parity work is backend-first/UI-agnostic — `c2-entities` is the contract, the frontend is swappable |
+| Bespoke "Callback tab" UI | **trigger-gated M6** | build a thin app (or stingar-ui tab) over `c2-entities` ONLY if Kibana's detail-page/inline-action limits actually bite. Nothing wasted — same entity index |
 
 ## 6. Non-goals (explicit)
 - **Sandbox detonation / behavioral Stage 2** — out of scope; our Stage 2 stays
