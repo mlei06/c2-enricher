@@ -165,7 +165,7 @@ now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
 
 | Decision | Choice | Why |
 |---|---|---|
-| Entity maintenance | **ES continuous transform** for facts; reason job for intel | Transform is ES-native/no-service for the rollup; only intel needs a job |
+| Entity maintenance | **Reason job is the SOLE writer** (rollup + intel in one upsert) | An ES transform overwrites its dest doc each checkpoint, clobbering externally-written intel fields (verified empirically on ES 8.19). Single writer = no clobber; deterministic `_id = c2_host`; rollup via one composite agg, decay via delete_by_query. (Originally planned as transform-for-rollup + job-for-intel — the clobber forced unifying them.) |
 | Entity lifetime | decaying (retention 30d on last_seen) | C2s live ~3d; stale stage poisons blocklists (revisited & reaffirmed) |
 | Stage escalation | reason can only **raise** stage above evidence_stage | evidence is the floor; intel adds confidence, never hides it |
 | VT placement | reason job, cached, off the hot path, default-off | VT rate limits + latency must never touch ingestion |

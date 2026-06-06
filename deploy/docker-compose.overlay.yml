@@ -18,3 +18,15 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+
+  # M2 reason layer (rollup + intel overlay -> c2-entities, every 5 min).
+  c2reason:
+    image: michaeldockerlei/c2-engine:v2.3
+    restart: on-failure
+    command: ["reason", "--interval", "300"]
+    environment:
+      C2E_ES_HOST: elasticsearch
+      C2E_ES_PORT: "9200"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy

@@ -89,34 +89,23 @@ def test_daily_index_from_end_time() -> None:
 
 # --- bootstrap installs policy + template before serving ------------------
 
-def test_ensure_bootstrap_installs_policy_template_and_transform(monkeypatch) -> None:
+def test_ensure_bootstrap_installs_policy_and_templates(monkeypatch) -> None:
     puts: list[str] = []
-    sends: list[tuple[str, str]] = []
     es = EsWriter(base_url="http://es:9200")
     monkeypatch.setattr(es, "_put", lambda path, doc: puts.append(path))
-    monkeypatch.setattr(es, "_send", lambda m, p, b=None: (sends.append((m, p)), (200, ""))[1])
     es.ensure_bootstrap()
     assert puts == [
         "_ilm/policy/stingarc2",
         f"_index_template/{INDEX_TEMPLATE_NAME}",
-        "_index_template/c2-entities",
-    ]
-    assert sends == [
-        ("PUT", "_transform/c2-entities"),
-        ("POST", "_transform/c2-entities/_start"),
+        "_index_template/c2-entities",  # entity index is reason-owned, no transform
     ]
 
 
-def test_transform_def_shape() -> None:
-    from c2engine.ingest.es_assets import ENTITIES_TEMPLATE, TRANSFORM
-    assert TRANSFORM["dest"]["index"] == "c2-entities"
-    assert TRANSFORM["pivot"]["group_by"] == {"c2_host": {"terms": {"field": "c2_host"}}}
-    # geo_point can't go through top_metrics -> centroid
-    assert "geo_centroid" in TRANSFORM["pivot"]["aggregations"]["c2_geo"]
-    # decaying view, keyed on last_seen
-    assert TRANSFORM["retention_policy"]["time"] == {"field": "last_seen", "max_age": "30d"}
+def test_entities_template_shape() -> None:
+    from c2engine.ingest.es_assets import ENTITIES_TEMPLATE
     props = ENTITIES_TEMPLATE["template"]["mappings"]["properties"]
     assert props["c2_geo"]["type"] == "geo_point"
+    assert props["stage"]["type"] == "keyword"
     rt = ENTITIES_TEMPLATE["template"]["mappings"]["runtime"]
     assert rt["evidence_stage"]["type"] == "keyword"
 

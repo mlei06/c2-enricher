@@ -83,12 +83,26 @@ def main(argv: list[str] | None = None) -> int:
         func=_cmd_serve
     )
 
+    reason = sub.add_parser("reason", help="rebuild the c2-entities rollup + intel overlay")
+    reason.add_argument(
+        "--interval", type=int, default=None,
+        help="seconds between passes (omit = run once and exit)",
+    )
+    reason.set_defaults(func=_cmd_reason)
+
     args = parser.parse_args(argv)
     return int(args.func(args))
 
 
 def _cmd_serve(_args: argparse.Namespace) -> int:
     serve()
+    return 0
+
+
+def _cmd_reason(args: argparse.Namespace) -> int:
+    from c2engine.reason import run
+
+    run(interval=args.interval)
     return 0
 
 

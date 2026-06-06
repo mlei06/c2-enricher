@@ -10,6 +10,8 @@ import urllib.request
 from datetime import UTC, datetime
 from typing import Any
 
+from urllib.parse import quote
+
 from c2engine.ingest.es_assets import (
     ENTITIES_TEMPLATE,
     ENTITIES_TEMPLATE_NAME,
@@ -17,8 +19,6 @@ from c2engine.ingest.es_assets import (
     ILM_POLICY_NAME,
     INDEX_TEMPLATE,
     INDEX_TEMPLATE_NAME,
-    TRANSFORM,
-    TRANSFORM_ID,
 )
 
 log = logging.getLogger(__name__)
@@ -137,8 +137,11 @@ class EsWriter:
         """
         self._put(f"_ilm/policy/{ILM_POLICY_NAME}", ILM_POLICY)
         self._put(f"_index_template/{INDEX_TEMPLATE_NAME}", INDEX_TEMPLATE)
-        log.info("ES bootstrap ok: ILM policy + index template %s installed", INDEX_TEMPLATE_NAME)
-        self.ensure_transform()
+        # entity index mappings (geo_point + evidence_stage runtime); the reason
+        # job is the sole writer of this index.
+        self._put(f"_index_template/{ENTITIES_TEMPLATE_NAME}", ENTITIES_TEMPLATE)
+        log.info("ES bootstrap ok: ILM + index templates (%s, %s) installed",
+                 INDEX_TEMPLATE_NAME, ENTITIES_TEMPLATE_NAME)
 
     def _send(self, method: str, path: str, body: dict[str, Any] | None = None) -> tuple[int, str]:
         """One-shot request returning (status, body) — tolerates 4xx (caller decides)."""
@@ -148,34 +151,29 @@ class EsWriter:
             url, data=data, headers={"Content-Type": "application/json"}, method=method
         )
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=60) as resp:
                 return resp.status, resp.read().decode("utf-8", "replace")
         except urllib.error.HTTPError as exc:
             return exc.code, exc.read().decode("utf-8", "replace")
 
-    def ensure_transform(self) -> None:
-        """Install the entity rollup: template + continuous transform (M1).
+    # --- helpers used by the reason job (entity index is reason-owned) --------
 
-        Idempotent: PUT _transform 409s if it exists (fine); _start 409s if it's
-        already running (fine). To change the transform definition later, it must
-        be stopped + deleted + recreated (a separate migration).
-        """
-        self._put(f"_index_template/{ENTITIES_TEMPLATE_NAME}", ENTITIES_TEMPLATE)
-        code, resp = self._send("PUT", f"_transform/{TRANSFORM_ID}", TRANSFORM)
-        if code in (200, 201):
-            log.info("created transform %s", TRANSFORM_ID)
-        elif code == 409:
-            log.info("transform %s already exists", TRANSFORM_ID)
-        else:
-            log.error("transform create failed (%s): %s", code, resp[:300])
-            return
-        code, resp = self._send("POST", f"_transform/{TRANSFORM_ID}/_start")
-        if code == 200:
-            log.info("started transform %s", TRANSFORM_ID)
-        elif code == 409:
-            log.debug("transform %s already running", TRANSFORM_ID)
-        else:
-            log.warning("transform start (%s): %s", code, resp[:300])
+    def search(self, index: str, body: dict[str, Any]) -> dict[str, Any]:
+        code, resp = self._send("POST", f"{index}/_search", body)
+        if code >= 300:
+            raise RuntimeError(f"ES search {index} -> {code}: {resp[:300]}")
+        return json.loads(resp)
+
+    def index_doc(self, index: str, doc_id: str, doc: dict[str, Any]) -> None:
+        code, resp = self._send("PUT", f"{index}/_doc/{quote(doc_id, safe='')}", doc)
+        if code >= 300:
+            raise RuntimeError(f"ES index {index}/{doc_id} -> {code}: {resp[:300]}")
+
+    def delete_by_query(self, index: str, body: dict[str, Any]) -> int:
+        code, resp = self._send("POST", f"{index}/_delete_by_query?refresh=true", body)
+        if code >= 300:
+            raise RuntimeError(f"ES delete_by_query {index} -> {code}: {resp[:300]}")
+        return json.loads(resp).get("deleted", 0)
 
     def write_session(self, doc: dict[str, Any], *, source_tag: str = "") -> None:
         if source_tag:

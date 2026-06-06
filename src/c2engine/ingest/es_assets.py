@@ -77,20 +77,21 @@ INDEX_TEMPLATE: dict[str, Any] = {
 }
 
 
-# --- M1: entity rollup (one decaying doc per C2, via ES continuous transform) -
+# --- M1/M2: entity rollup (one decaying doc per C2) ---------------------------
+# Written by the REASON JOB, not an ES transform: a transform owns (and
+# overwrites) its dest doc on every checkpoint, which would clobber the intel
+# fields the reason layer overlays (verified empirically on ES 8.19). So the
+# reason job is the single writer — it computes the rollup AND the intel and
+# upserts one doc per C2 (deterministic _id = c2_host), with manual 30d decay.
 
 ENTITIES_INDEX = "c2-entities"
 ENTITIES_TEMPLATE_NAME = "c2-entities"
-TRANSFORM_ID = "c2-entities"
 
-# Dest index for the transform. dynamic:true — the transform controls all writes
-# (no untrusted input) and deduces correct types (incl. geo_point); we add the
-# `evidence_stage` runtime field (max_evidence_rank -> stage string) and pre-map
-# the fields the M2/M3 reason job will overlay so later writes stay typed.
+# dynamic:true — the reason job controls all writes (no untrusted input); we map
+# geo_point/typed fields explicitly and add the evidence_stage runtime field
+# (max_evidence_rank -> floor stage; the reason job's `stage` may escalate above).
 ENTITIES_TEMPLATE: dict[str, Any] = {
     "index_patterns": [ENTITIES_INDEX],
-    # `c2-entities` is deliberately OUTSIDE the `stingarc2-*` ledger glob, so no
-    # template-priority collision and no transform self-reference to work around.
     "priority": 200,
     "template": {
         "settings": {"number_of_shards": 1},
@@ -136,49 +137,11 @@ ENTITIES_TEMPLATE: dict[str, Any] = {
                 "reason_version": {"type": "keyword"},
                 "max_vt_ratio": {"type": "float"},
                 "vt_families": {"type": "keyword"},
+                "updated_at": {"type": "date"},
             },
         },
     },
 }
 
-# Continuous transform: stingarc2-* (events) -> c2-entities (decaying view).
-# top_metrics can't take geo_point, so c2_geo uses geo_centroid (all sightings of
-# one IP share a point, so the centroid IS that point); the rest ride top_metrics
-# (latest-by-ts). retention_policy expires entities 30d after last_seen.
-TRANSFORM: dict[str, Any] = {
-    # `c2-entities` (dest) is not matched by `stingarc2-*`, so no self-reference.
-    "source": {"index": ["stingarc2-*"]},
-    "dest": {"index": ENTITIES_INDEX},
-    "pivot": {
-        "group_by": {"c2_host": {"terms": {"field": "c2_host"}}},
-        "aggregations": {
-            "first_seen": {"min": {"field": "ts"}},
-            "last_seen": {"max": {"field": "ts"}},
-            "sighting_count": {"value_count": {"field": "c2_host"}},
-            "sensor_count": {"cardinality": {"field": "sensor_hostname"}},
-            "src_ip_count": {"cardinality": {"field": "src_ip"}},
-            "distinct_files": {"cardinality": {"field": "sha256"}},
-            "max_evidence_rank": {"max": {"field": "evidence_rank"}},
-            "c2_geo": {"geo_centroid": {"field": "c2_geo"}},
-            # numeric ASN via max (null-safe: missing -> absent). top_metrics
-            # would write a non-numeric placeholder for hosts with no ASN and
-            # break the `long` mapping. All sightings of one IP share the ASN.
-            "c2_asn": {"max": {"field": "c2_asn"}},
-            # keyword "latest" fields tolerate missing; numeric stays out.
-            "latest": {
-                "top_metrics": {
-                    "metrics": [
-                        {"field": "c2_host_kind"},
-                        {"field": "c2_country"},
-                        {"field": "c2_asn_org"},
-                    ],
-                    "sort": [{"ts": "desc"}],
-                }
-            },
-        },
-    },
-    "sync": {"time": {"field": "ts", "delay": "60s"}},
-    "retention_policy": {"time": {"field": "last_seen", "max_age": "30d"}},
-    "frequency": "1m",
-    "settings": {"max_page_search_size": 500},
-}
+# How long an entity lives past its last sighting (decaying view; C2s ~3d).
+ENTITY_RETENTION_DAYS = 30
