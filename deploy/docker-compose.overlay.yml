@@ -30,3 +30,19 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+
+  # M4 blocklist/alert feed (read-only HTTP over c2-entities).
+  c2feed:
+    image: michaeldockerlei/c2-engine:v2.3
+    restart: on-failure
+    command: ["feed"]
+    ports:
+      - "127.0.0.1:8088:8088"
+    environment:
+      C2E_FEED_HOST: 0.0.0.0
+      C2E_FEED_PORT: "8088"
+      C2E_ES_HOST: elasticsearch
+      C2E_ES_PORT: "9200"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy

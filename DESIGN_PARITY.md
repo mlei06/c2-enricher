@@ -126,18 +126,27 @@ verdict: look up VT, cache fleet-wide.
 - **Exit:** the dashboard file/entity view shows a VT detection ratio (GreyNoise's
   "50 / 77 engines") for files VT knows; unknown files simply omit it.
 
-### M4 — Blocklist / alert feed (the actionable output)
+### M4 — Blocklist / alert feed (the actionable output) ✅ done 2026-06-06
 
 Read `c2-entities` where `stage ≥ stage1_serving AND last_seen ≥
 now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
 
-- **Primary**: a tiny HTTP endpoint in the engine (`GET /feed/blocklist.txt`,
-  plain IP list) firewalls/SIEMs can pull; `?stage=2`, `?window=3d` params.
-- **Optional**: push the same set to the existing **CIF** out (reuse STINGAR's
-  threat-sharing channel) and/or a Kibana alerting rule on the entity index.
+- **Shipped**: a stdlib HTTP server (`c2engine/feed/`, `c2-engine feed`
+  subcommand, `c2feed` compose service on :8088):
+  - `GET /feed/blocklist.txt` — plain IP list (one per line, `#` header), IPs
+    only (domains excluded from a firewall feed); firewalls/SIEMs pull this.
+  - `GET /feed/c2.json` — full entity summaries (IPs + domains: stage, families,
+    signals, counts, asn_org, country).
+  - `GET /healthz`. Params on the feeds: `?stage=1|2` (min **final** stage —
+    filters the intel-escalated `stage`, not raw rank), `?window=7d`, `?limit=N`.
+    `window` validated against `^\d+[smhd]$` then passed to ES `now-` date math;
+    `limit` clamped to 10000.
+- **Optional (deferred)**: push the same set to the existing **CIF** out, and/or
+  a Kibana alerting rule on the entity index, and/or an nginx route for off-box
+  pulls (the feed binds localhost on the host by default).
 - Correctness is trivial because the entity index is already decaying — no stale
-  IPs in the feed by construction. **Exit:** a curl-able, always-fresh C2
-  blocklist; optional CIF contribution.
+  IPs in the feed by construction. **Exit:** ✅ a curl-able, always-fresh C2
+  blocklist.
 
 ### M5 — Classifier + UI polish (incremental, data-driven)
 

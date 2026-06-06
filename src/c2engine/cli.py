@@ -90,6 +90,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     reason.set_defaults(func=_cmd_reason)
 
+    sub.add_parser(
+        "feed", help="serve the blocklist/alert feed over c2-entities (HTTP)"
+    ).set_defaults(func=_cmd_feed)
+
     args = parser.parse_args(argv)
     return int(args.func(args))
 
@@ -103,6 +107,13 @@ def _cmd_reason(args: argparse.Namespace) -> int:
     from c2engine.reason import run
 
     run(interval=args.interval)
+    return 0
+
+
+def _cmd_feed(_args: argparse.Namespace) -> int:
+    from c2engine.feed import serve as serve_feed
+
+    serve_feed()
     return 0
 
 

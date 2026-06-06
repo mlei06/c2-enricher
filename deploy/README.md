@@ -56,11 +56,33 @@ c2-engine :24230       →  enrich → ES stingar-* / stingarc2-*
 If c2-engine is down, fluentd buffers enrichable events and retries — they
 delay, never drop (DESIGN.md §8).
 
+## Blocklist / alert feed (M4)
+
+The `c2feed` service serves a read-only feed over the decaying `c2-entities`
+view on `:8088` (bound to localhost on the host by default). It's always-fresh
+by construction — the entity index already decays ~30 d after `last_seen`, and
+the feed window narrows further.
+
+```bash
+# active C2 IPs, one per line (firewalls/SIEMs pull this)
+curl localhost:8088/feed/blocklist.txt
+
+# only stage-2 (intel-confirmed) C2s seen in the last 3 days
+curl 'localhost:8088/feed/blocklist.txt?stage=2&window=3d'
+
+# full entity summaries (stage, families, signals, asn_org, ...) incl. domains
+curl localhost:8088/feed/c2.json
+```
+
+Params: `?stage=1|2` (min **final** stage — the intel-escalated `stage`, not raw
+evidence rank), `?window=<int>[smhd]` (default `7d`), `?limit=N` (≤10000). For
+off-box pulls, widen the port mapping or add an nginx route.
+
 ## Layout
 
 | File | Purpose |
 |------|---------|
-| `docker-compose.yml` | Full STINGAR v2.3 stack + `c2engine` service |
+| `docker-compose.yml` | Full STINGAR v2.3 stack + `c2engine` / `c2reason` / `c2feed` |
 | `fluent.conf` | Stock `stingar.events.*` path + enrichable hop |
 | `env.txt` | Environment template — copy to `stingar.env` |
 | `fluentd/c2-engine.conf` | Enrichable-hop snippet for manual merges |
