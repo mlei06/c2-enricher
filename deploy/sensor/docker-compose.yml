@@ -2,12 +2,17 @@
 # No build step: pulls michaeldockerlei/cowrie-stingar (our cowrie + output
 # plugins + in-session url fetcher) and the stock fluentbit forwarder.
 #
-#   cp ../../current_stingar_deploy/sensor/stingar-hp.env ./stingar-hp.env  # then edit
-#   docker compose --env-file stingar-hp.env up -d
+#   cp stingar-hp.env.example stingar-hp.env   # then fill secrets/host fields
+#   docker-compose --env-file stingar-hp.env up -d   # compose v1
+#   # or:  docker compose --env-file stingar-hp.env up -d   # compose v2
 #
-# The image's entrypoint renders cowrie.cfg from these env vars, sends one
-# "sensor" check-in, then starts cowrie. The periodic healthcheck below
-# re-sends the heartbeat so the host stays "alive" in the STINGAR UI.
+# version is pinned for compose v1 (1.29.x), which the Ubuntu honeypot hosts
+# get from apt; v2 ignores it. The image's entrypoint renders cowrie.cfg from
+# these env vars, sends one "sensor" check-in, then starts cowrie. The periodic
+# healthcheck re-sends the heartbeat so the host stays "alive" in the STINGAR UI.
+#
+# NOTE: cowrie binds host ports 22/23 — move the box's real sshd off 22 first.
+version: "2.4"
 services:
   cowrie:
     image: michaeldockerlei/cowrie-stingar:v2.3
