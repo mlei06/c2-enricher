@@ -7,6 +7,7 @@ on the STINGAR Kibana (DESIGN.md §7):
 |---|---|---|
 | `c2-command-center.ndjson` | **C2 Command Center** | C2-host-first: map of the threat, click a C2 → its honeypots/src_ips/payloads/sessions |
 | `c2-payload-explorer.ndjson` | **Payload Explorer** | file-first: families over time, one row per sha256, cross-sensor dedupe, script source |
+| `c2-entity-view.ndjson` | **C2 Entity View** (M5) | reason-layer-first: staged/decaying entities (`c2-entities`) — stage, signals, family rollup, VT ratio, ASN — click a C2 → its served files / scanners / sensors |
 
 (DESIGN §7's "C2 Detail" is **not** a separate dashboard — it's the Command
 Center's post-click state once a `c2_host: X` filter is pinned.)
@@ -58,6 +59,26 @@ File-first, over the ledger `served_file` rows (default window: last 30 days):
 
 Generator: `build_payload_explorer.py`.
 
+## C2 Entity View (`c2-entity-view.ndjson`, M5)
+The first surface for the **reason layer's output** — the `c2-entities` decaying
+view (default window: last 30 days, on `last_seen`). Self-contained: bundles the
+`c2-entities` (timeField `last_seen`) and `c2-ledger` (`stingarc2-*`) data views.
+
+- **Confirmed C2s (stage2)** — metric, `stage:stage2_c2`.
+- **By Stage / Stage Signals / Families (entity rollup) / Top ASN Orgs** —
+  terms over `c2-entities` (`stage`, `stage_signals`, `families`,
+  `latest.c2_asn_org`).
+- **Active C2 Entities** — one row per C2 with stage, signals, families,
+  `max_evidence_rank`, `max_vt_ratio`, counts, ASN, `last_seen`. **Click a
+  `c2_host` → Filter for value** to pin the **detail page**.
+- The pinned `c2_host:X` filter also drives the ledger drill-down panels —
+  **Served Files** (sha/family/size/magic), **Scanners (src_ip)**, **Honeypots
+  Hit** — because `c2_host` is shared across `c2-entities` and `stingarc2-*`.
+  That single click is GreyNoise's "callback detail" page: the entity's verdict
+  plus everything it did.
+
+Generator: `build_entity_view.py`.
+
 ## Regenerate / edit
 `build_dash.py` (Command Center) and `build_payload_explorer.py` produce the
 importable NDJSON (agg-based visualizations — stable across Kibana 8.x, unlike
@@ -68,9 +89,16 @@ curl ... _import?overwrite=true --form file=@/tmp/c2-dash.ndjson
 # then re-export with includeReferencesDeep to refresh c2-command-center.ndjson
 ```
 
-## Not yet included
-- **Maps (geo_point) layer** — deferred: Kibana Maps saved objects are very
-  version-fragile to hand-author, and geo only populates on real attacker IPs
-  (test IPs / TEST-NET have no geo). Add via the UI once real C2 geo data flows.
+## Not yet included (M5 remainder — deferred with rationale)
+- **Maps (geo_point) layer over `c2-entities`** styled by `stage` — deferred:
+  Kibana Maps saved objects are very version-fragile to hand-author (a bad
+  `layerListJSON` fails the import), and a map can't be visually verified via the
+  API. Real C2 geo *does* now flow (`c2_geo`/ASN populated on real callback IPs),
+  so author it in the UI (Maps → documents source on `c2-entities`, style by
+  `stage`) and export alongside these — it's the last GreyNoise-parity visual.
+- **Family classifier upgrade** — data-gated: the current rules cover what our
+  captures show. Harvesting new markers / adding YARA needs a real malware
+  corpus; our served test files are synthetic (VT has no record of them), so
+  there's nothing to harvest yet. Revisit as real `served_file` volume grows.
 - `family`/`Payloads` panels populate only on real malware downloads
   (`served_file`); test sessions that reference but don't download stay rank-0.

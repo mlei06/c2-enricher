@@ -155,17 +155,21 @@ now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
   IPs in the feed by construction. **Exit:** ✅ a curl-able, always-fresh C2
   blocklist.
 
-### M5 — Classifier + UI polish (incremental, data-driven)
+### M5 — Classifier + UI polish (incremental, data-driven) — partially done 2026-06-06
 
-- **Family classifier**: harvest markers from the `trojan.elf/<arch>`
-  unclassified bucket as real captures accumulate; optionally add `yara-python`
-  rules in the reason layer (heavier, gated on need).
-- **Maps geo layer** on `c2-entities` (styled by `stage`) — author in the
-  Kibana UI once real attacker IPs with geo flow, then export to
-  `es/dashboards/`.
-- **Entity detail dashboard** (GreyNoise's callback detail page): filtered by
-  `c2_host` — stage, files (hashes/size/family/vt), `stage_signals`, the scanner
-  (src_ip) panel, evidence-source markdown.
+- **Entity detail dashboard** ✅ — `es/dashboards/c2-entity-view.ndjson`
+  (generator `build_entity_view.py`). The first Kibana surface for the reason
+  layer: staged/decaying `c2-entities` (stage, `stage_signals`, family rollup,
+  `max_vt_ratio`, ASN, counts). Clicking a `c2_host` pins a filter that drives
+  both the entity panels and the ledger drill-down (served files / scanners /
+  sensors) — GreyNoise's callback-detail page. Self-contained (bundles its data
+  views); imported + verified live (stage2_c2 entities, signals, families render).
+- **Maps geo layer** on `c2-entities` (styled by `stage`) ⏳ deferred — Maps
+  saved objects are version-fragile to hand-author and can't be API-verified;
+  real `c2_geo` now flows, so author in the Kibana UI and export. (es/dashboards
+  README "Not yet included".)
+- **Family classifier** ⏳ deferred — data-gated: nothing to harvest until real
+  `served_file` volume accumulates (current captures are synthetic / VT-unknown).
 
 ## 4. Data contracts (new)
 
