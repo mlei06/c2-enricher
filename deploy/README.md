@@ -106,8 +106,12 @@ off-box pulls, widen the port mapping or add an nginx route.
 | `env.txt` | Environment template — copy to `stingar.env` |
 | `fluentd/c2-engine.conf` | Enrichable-hop snippet for manual merges |
 
-MaxMind DBs ship in `4warned/fluentd:v2.3` (session geo filters) and are
-copied into the c2-engine image at build time (C2 host geo on ledger rows).
+Geo databases in the c2-engine image: the **ASN** db is copied from
+`4warned/fluentd:v2.3` at build time, but the **City** db is fetched fresh from
+**DB-IP City Lite** (CC BY 4.0 — *IP geolocation by [DB-IP](https://db-ip.com)*),
+because the only City db the fluentd image ships is the geoip gem's 2017 copy,
+which misses post-2017 IP allocations (verified live). Bump the `DBIP_MONTH`
+build arg when rebuilding much later.
 
 ## Sensor-side change
 

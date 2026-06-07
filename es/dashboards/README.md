@@ -8,6 +8,7 @@ on the STINGAR Kibana (DESIGN.md §7):
 | `c2-command-center.ndjson` | **C2 Command Center** | C2-host-first: map of the threat, click a C2 → its honeypots/src_ips/payloads/sessions |
 | `c2-payload-explorer.ndjson` | **Payload Explorer** | file-first: families over time, one row per sha256, cross-sensor dedupe, script source |
 | `c2-entity-view.ndjson` | **C2 Entity View** (M5) | reason-layer-first: staged/decaying entities (`c2-entities`) — stage, signals, family rollup, VT ratio, ASN — click a C2 → its served files / scanners / sensors |
+| `c2-geo-map.ndjson` | **C2 — Geo** (M5, Maps app) | world map: one point per active C2 (`c2_geo`), fill-colored by final `stage` (red stage2 / amber stage1 / grey unconfirmed). Import the Entity View first (it bundles the `c2-entities` data view this references) |
 
 (DESIGN §7's "C2 Detail" is **not** a separate dashboard — it's the Command
 Center's post-click state once a `c2_host: X` filter is pinned.)
@@ -89,13 +90,27 @@ curl ... _import?overwrite=true --form file=@/tmp/c2-dash.ndjson
 # then re-export with includeReferencesDeep to refresh c2-command-center.ndjson
 ```
 
+## C2 — Geo (`c2-geo-map.ndjson`, M5)
+The GreyNoise-style world map of active C2 infrastructure: a Maps-app object
+with an EMS basemap + a documents layer over `c2-entities` (`c2_geo`), point
+fill **categorical on the final `stage`** (red `stage2_c2` / amber
+`stage1_serving` / grey `unconfirmed`); tooltip carries host / stage / signals /
+families / ASN / last_seen. Because the entity index decays, the map is
+self-cleaning — dots vanish ~30 d after a C2 goes quiet.
+
+- **Hand-authored against Kibana 8.19** (generator `build_geo_map.py`). Maps
+  `layerListJSON` is version-fluid — if a Kibana upgrade breaks it, re-author in
+  the Maps UI and re-export (the data needs nothing new).
+- **Geo data**: ledger rows geo-locate at enrich time; entities take the
+  attack-time `geo_centroid`, with a **reason-job fallback** that locates the
+  host *now* when older rows predate the City-db fix. The engine image ships
+  **DB-IP City Lite** (CC BY 4.0 — *IP geolocation by [DB-IP](https://db-ip.com)*)
+  because the only City db in the STINGAR fluentd image is the geoip gem's
+  2017 copy, which misses post-2017 IP allocations entirely.
+- Import order: `c2-entity-view.ndjson` first (bundles the `c2-entities` data
+  view), then this.
+
 ## Not yet included (M5 remainder — deferred with rationale)
-- **Maps (geo_point) layer over `c2-entities`** styled by `stage` — deferred:
-  Kibana Maps saved objects are very version-fragile to hand-author (a bad
-  `layerListJSON` fails the import), and a map can't be visually verified via the
-  API. Real C2 geo *does* now flow (`c2_geo`/ASN populated on real callback IPs),
-  so author it in the UI (Maps → documents source on `c2-entities`, style by
-  `stage`) and export alongside these — it's the last GreyNoise-parity visual.
 - **Family classifier upgrade** — data-gated: the current rules cover what our
   captures show. Harvesting new markers / adding YARA needs a real malware
   corpus; our served test files are synthetic (VT has no record of them), so

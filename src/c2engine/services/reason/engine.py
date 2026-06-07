@@ -18,6 +18,7 @@ from typing import Any
 
 from c2engine.elastic.client import EsWriter
 from c2engine.elastic.schema import ENTITIES_INDEX, ENTITY_RETENTION_DAYS
+from c2engine.pipeline.enrich.geo import GeoEnricher
 from c2engine.services.reason.vt import (
     DEFAULT_MIN_MALICIOUS,
     VtResolver,
@@ -71,6 +72,8 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
     # VT (M3): cache-first, budget-bounded, no-op without VT_API_KEY. One resolver
     # per pass so the per-run lookup budget is shared across all entities.
     vt = VtResolver(es, now=now)
+    # Entity-geo fallback (M5 map): graceful no-op without mmdbs.
+    geo = GeoEnricher()
     try:
         min_mal = int(os.environ.get("C2E_VT_MIN_MALICIOUS", str(DEFAULT_MIN_MALICIOUS)))
     except ValueError:
@@ -130,6 +133,17 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
                 doc["c2_asn"] = int(b["asn"]["value"])
             if b["geo"].get("location"):
                 doc["c2_geo"] = b["geo"]["location"]  # {"lat":.., "lon":..}
+            elif geo.enabled:
+                # Current-location fallback: rows written while the City db was
+                # stale (or before geo shipped) carry no c2_geo, so the
+                # attack-time centroid is empty. Locate the host NOW instead —
+                # for "active C2 infrastructure" current geo is the right
+                # semantic anyway. Centroid still wins when present.
+                found = geo.locate(host)
+                if "c2_geo" in found:
+                    doc["c2_geo"] = found["c2_geo"]
+                    if found.get("c2_country") and "c2_country" not in doc["latest"]:
+                        doc["latest"]["c2_country"] = found["c2_country"]
             es.index_doc(ENTITIES_INDEX, host, doc)
             updated += 1
         after = agg.get("after_key")

@@ -164,10 +164,15 @@ now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
   both the entity panels and the ledger drill-down (served files / scanners /
   sensors) — GreyNoise's callback-detail page. Self-contained (bundles its data
   views); imported + verified live (stage2_c2 entities, signals, families render).
-- **Maps geo layer** on `c2-entities` (styled by `stage`) ⏳ deferred — Maps
-  saved objects are version-fragile to hand-author and can't be API-verified;
-  real `c2_geo` now flows, so author in the Kibana UI and export. (es/dashboards
-  README "Not yet included".)
+- **Maps geo layer** on `c2-entities` (styled by `stage`) ✅ done 2026-06-06 —
+  `es/dashboards/c2-geo-map.ndjson` (generator `build_geo_map.py`), hand-authored
+  against Kibana 8.19. Shipping it surfaced a real data bug: the engine image's
+  City db was the fluentd gem's **2017** copy (misses post-2017 IP allocations —
+  both live C2 IPs returned AddressNotFoundError while ASN resolved). Fixed by
+  (a) baking **DB-IP City Lite** (current, no-key, CC BY 4.0) into the image and
+  (b) a **reason-job geo fallback**: attack-time `geo_centroid` wins; entities
+  whose rows predate the fix get located at rollup time — no ledger mutation.
+  Verified live: both stage2 C2s render (DE / NL).
 - **Family classifier** ⏳ deferred — data-gated: nothing to harvest until real
   `served_file` volume accumulates (current captures are synthetic / VT-unknown).
 
