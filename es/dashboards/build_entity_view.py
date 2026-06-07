@@ -11,6 +11,8 @@ Agg-based visualizations (stable across Kibana 8.x, unlike hand-authored Lens).
 """
 import json
 
+from build_geo_map import MAP_OBJ  # bundled: the dashboard references it as a panel
+
 ENTITIES = "c2-entities"  # data view id == index (timeField last_seen)
 LEDGER = "c2-ledger"      # data view id (stingarc2-*, timeField ts)
 objs = []
@@ -140,18 +142,22 @@ saved_search("e-files", "Served Files (selected C2)",
 table_viz("e-scanners", "Scanners (src_ip)", "src_ip", dv=LEDGER)
 table_viz("e-sensors", "Honeypots Hit", "sensor_hostname", dv=LEDGER)
 
+# the geo map ships in this ndjson too (single self-contained import)
+objs.append(MAP_OBJ)
+
 # --- dashboard (48-col grid) ----------------------------------------------
 layout = [
     ("e-note",      0,  0, 32, 6,  "visualization"),
     ("e-confirmed", 32, 0, 16, 6,  "visualization"),
-    ("e-stage",     0,  6, 16, 11, "visualization"),
-    ("e-signals",   16, 6, 16, 11, "visualization"),
-    ("e-families",  32, 6, 16, 11, "visualization"),
-    ("e-entities",  0, 17, 48, 12, "search"),
-    ("e-asn",       0, 29, 16, 11, "visualization"),
-    ("e-scanners",  16, 29, 16, 11, "visualization"),
-    ("e-sensors",   32, 29, 16, 11, "visualization"),
-    ("e-files",     0, 40, 48, 12, "search"),
+    ("c2-geo",      0,  6, 48, 14, "map"),
+    ("e-stage",     0, 20, 16, 11, "visualization"),
+    ("e-signals",   16, 20, 16, 11, "visualization"),
+    ("e-families",  32, 20, 16, 11, "visualization"),
+    ("e-entities",  0, 31, 48, 12, "search"),
+    ("e-asn",       0, 43, 16, 11, "visualization"),
+    ("e-scanners",  16, 43, 16, 11, "visualization"),
+    ("e-sensors",   32, 43, 16, 11, "visualization"),
+    ("e-files",     0, 54, 48, 12, "search"),
 ]
 panels, refs = [], []
 for i, (oid, x, y, w, h, typ) in enumerate(layout, 1):

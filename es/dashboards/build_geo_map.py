@@ -88,7 +88,10 @@ points = {
     },
 }
 
-obj = {
+# Importable by build_entity_view.py, which bundles this object into the
+# entity-view ndjson (the dashboard references it as a panel — single-file
+# import stays self-contained).
+MAP_OBJ = {
     "id": "c2-geo",
     "type": "map",
     "attributes": {
@@ -111,6 +114,7 @@ obj = {
                     "type": "index-pattern", "id": ENTITIES}],
 }
 
-with open("/tmp/c2-geo-map.ndjson", "w") as f:
-    f.write(json.dumps(obj) + "\n")
-print("wrote 1 map saved object")
+if __name__ == "__main__":
+    with open("/tmp/c2-geo-map.ndjson", "w") as f:
+        f.write(json.dumps(MAP_OBJ) + "\n")
+    print("wrote 1 map saved object")

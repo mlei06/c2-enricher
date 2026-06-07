@@ -8,7 +8,7 @@ on the STINGAR Kibana (DESIGN.md §7):
 | `c2-command-center.ndjson` | **C2 Command Center** | C2-host-first: map of the threat, click a C2 → its honeypots/src_ips/payloads/sessions |
 | `c2-payload-explorer.ndjson` | **Payload Explorer** | file-first: families over time, one row per sha256, cross-sensor dedupe, script source |
 | `c2-entity-view.ndjson` | **C2 Entity View** (M5) | reason-layer-first: staged/decaying entities (`c2-entities`) — stage, signals, family rollup, VT ratio, ASN — click a C2 → its served files / scanners / sensors |
-| `c2-geo-map.ndjson` | **C2 — Geo** (M5, Maps app) | world map: one point per active C2 (`c2_geo`), fill-colored by final `stage` (red stage2 / amber stage1 / grey unconfirmed). Import the Entity View first (it bundles the `c2-entities` data view this references) |
+| `c2-geo-map.ndjson` | **C2 — Geo** (M5, Maps app) | world map: one point per active C2 (`c2_geo`), fill-colored by final `stage` (red stage2 / amber stage1 / grey unconfirmed). Standalone copy — the Entity View ndjson already bundles this object and embeds it as a dashboard panel |
 
 (DESIGN §7's "C2 Detail" is **not** a separate dashboard — it's the Command
 Center's post-click state once a `c2_host: X` filter is pinned.)
@@ -107,8 +107,10 @@ self-cleaning — dots vanish ~30 d after a C2 goes quiet.
   **DB-IP City Lite** (CC BY 4.0 — *IP geolocation by [DB-IP](https://db-ip.com)*)
   because the only City db in the STINGAR fluentd image is the geoip gem's
   2017 copy, which misses post-2017 IP allocations entirely.
-- Import order: `c2-entity-view.ndjson` first (bundles the `c2-entities` data
-  view), then this.
+- **Bundled into `c2-entity-view.ndjson`** (which embeds the map as a full-width
+  dashboard panel under the header row — it responds to the pinned `c2_host`
+  filter like every other panel). One self-contained import covers everything;
+  `c2-geo-map.ndjson` is the standalone copy for importing just the map.
 
 ## Not yet included (M5 remainder — deferred with rationale)
 - **Family classifier upgrade** — data-gated: the current rules cover what our
