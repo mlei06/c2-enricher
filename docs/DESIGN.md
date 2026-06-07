@@ -19,7 +19,7 @@ Surface **command-and-control infrastructure** from honeypot traffic:
   which src_ips called it, which files/scripts it served, and where those
   files call back to (the chain).
 - The engine **grounds and groups** — immutable evidence rows. It never
-  renders verdicts; interpretation (intel escalation, family attribution
+  renders verdicts; interpretation (intel corroboration, family attribution
   beyond cheap rules) is a deferred reason layer.
 
 ### Use cases
@@ -270,7 +270,7 @@ outputs are plain functions until a fourth consumer exists. The `reason/` and
 | 3 | `ingest/` hop + Fluentd rules + compose overlay | deployable on a STINGAR server | dev stack: cowrie attack → rows in both indices |
 | 4 | ES template + ILM + sensor-side cowrie changes | end-to-end with real bytes | binary + script downloads produce correct served_file/file_callback rows |
 | 5 | Kibana dashboards (§7) as exported saved objects | the product | click-through U1–U8 works on dev data |
-| 6 | *(trigger-based)* `reason/` + `stingarc2-entities` transform | intel escalation, blocklist feed | only when triggered |
+| 6 | *(trigger-based)* `reason/` + `stingarc2-entities` transform | intel corroboration, blocklist feed | only when triggered |
 
 ## 7. Dashboards
 
@@ -400,7 +400,7 @@ clicking a sha256 answers "which C2s/sensors saw this exact artifact."
 | Item | Trigger |
 |---|---|
 | `stingarc2-entities` (ES transform, retention_policy max_age=30d) | reason layer ships, OR a downstream consumer needs a dumb feed (blocklist API) |
-| `reason/` intel escalation (known-malware SHA, HASSH toolkits, VT) | needs the entity index as its writable home |
+| `reason/` intel corroboration (known-malware SHA, HASSH toolkits, VT) | needs the entity index as its writable home |
 | Binary sample archive (`stingar-binaries-*`) | someone actually needs the bytes, not just hashes |
 | Sensor-side byte hashing (lighter transport) | Fluentd channel strain in practice |
 | Sandbox detonation | never (out of scope by design) |

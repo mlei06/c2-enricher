@@ -23,6 +23,7 @@
           "content": "full script source (served_file scripts only; binaries omit it)",
           "callbacks": "onward hosts found inside this file (script text / binary strings)",
           "c2_via_sha256": "file_callback rows: which served file (sha256) revealed this host",
+          "hassh": "SSH client fingerprint of the observing session (attacker toolkit attribution)",
           "src_ip": "attacker source IP",
           "sensor_hostname": "honeypot that observed it",
           "ts": "event time (session close)"
@@ -66,6 +67,7 @@
         "callbacks": { "type": "keyword" },
 
         "c2_via_sha256": { "type": "keyword" },
+        "hassh": { "type": "keyword" },
 
         "fluentd_tag": { "type": "keyword" }
       }

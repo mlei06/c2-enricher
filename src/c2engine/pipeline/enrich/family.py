@@ -1,7 +1,7 @@
 """Rules-based malware family labels — ``category.family/format`` convention.
 
 Cheap static heuristics only (shebang, strings markers, magic + arch). NO
-external lookups — VT/intel escalation is the phase-2 reason layer
+external lookups — VT/intel enrichment is the phase-2 reason layer
 (DESIGN.md §9). A miss returns None; over-labelling is worse than silence,
 so every label carries ``/possible`` unless the marker is unambiguous.
 """

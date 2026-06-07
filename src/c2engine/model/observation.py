@@ -45,6 +45,11 @@ class C2Observation(BaseModel):
     c2_port: int | None = None
     c2_path: str | None = None
 
+    # SSH client fingerprint of the session that observed this host (denormalized
+    # from hp_data.kex.hassh). Lets the reason layer attribute a known attacker
+    # toolkit to the C2 without a session-index join. Null for non-SSH/no-kex.
+    hassh: str | None = None
+
     # GeoIP/ASN (central MaxMind). Absent — never guessed — when lookup fails.
     c2_geo: dict[str, float] | None = None  # {"lat": …, "lon": …} → geo_point
     c2_country: str | None = None

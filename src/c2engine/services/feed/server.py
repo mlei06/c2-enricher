@@ -16,8 +16,9 @@ from c2engine.elastic.schema import ENTITIES_INDEX
 
 log = logging.getLogger(__name__)
 
-# Final-stage ordering (reason layer): the feed filters on the escalated `stage`,
-# not raw evidence_rank, so intel-confirmed C2s are included.
+# Stage ordering: the feed filters on `stage` (the evidence-ladder stage the
+# reason layer writes). Intel doesn't move stage — it adds stage_signals — so a
+# known-malware/VT hit annotates a host without changing its feed eligibility.
 STAGE_ORDER = ("unconfirmed", "stage1_serving", "stage2_c2")
 STAGE_RANK = {name: i for i, name in enumerate(STAGE_ORDER)}
 

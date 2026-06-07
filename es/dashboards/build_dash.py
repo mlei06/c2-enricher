@@ -104,7 +104,8 @@ table_viz("c2-families", "C2 — Top Threats (family)", "family", query="evidenc
 table_viz("c2-sensors", "C2 — Honeypots Hit", "sensor_hostname")
 table_viz("c2-srcips", "C2 — Source IPs", "src_ip")
 saved_search("c2-payloads", "C2 — Payloads Served",
-             ["c2_host", "file_kind", "family", "sha256", "interpreter", "sensor_hostname"],
+             ["c2_host", "file_kind", "family", "sha256", "interpreter", "callbacks",
+              "c2_url", "hassh", "sensor_hostname"],
              LEDGER, query="evidence:served_file")
 saved_search("c2-sessions-search", "C2 — Raw Sessions",
              ["src_ip", "c2_host", "hp_data.playbook_hash", "hp_data.commands"],

@@ -16,7 +16,9 @@ def base_obs(
     """A C2Observation pre-filled with the per-session common columns.
 
     ``self_hosted`` (loader-is-scanner) is set here: it is purely
-    ``c2_host == src_ip``, independent of evidence kind.
+    ``c2_host == src_ip``, independent of evidence kind. ``hassh`` is
+    denormalized from the session's SSH KEX so the reason layer can attribute
+    an attacker toolkit per c2_host without a session-index join.
     """
     return C2Observation(
         ts=session.end_time or session.start_time,
@@ -28,4 +30,5 @@ def base_obs(
         c2_host_kind=c2_host_kind,
         evidence=evidence,
         self_hosted=(c2_host == session.src_ip),
+        hassh=(session.hp_data.kex.hassh if session.hp_data.kex else None),
     )

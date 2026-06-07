@@ -38,6 +38,15 @@ def test_shell_references(session: SessionIn) -> None:
     assert refs == {"59.96.137.61", "evil.example.com"}
 
 
+def test_hassh_denormalized_onto_every_row(session: SessionIn) -> None:
+    """The session's SSH client hassh is stamped on every ledger row, across
+    evidence kinds — so the reason layer can attribute a toolkit per c2_host
+    without a session-index join."""
+    obs = all_observations(session)
+    assert obs  # fixture yields rows of every kind
+    assert all(o.hassh == "92674389fa1e47a27ddd8d9b63ecd42b" for o in obs)
+
+
 def test_served_file_hashes_and_kind(session: SessionIn) -> None:
     served = _by_evidence(all_observations(session), "served_file")
     assert len(served) == 1

@@ -1,6 +1,6 @@
 """Generate Kibana 8.19 saved-objects NDJSON for the C2 Entity View (M5).
 
-Surfaces the reason layer's output (`c2-entities`) — escalating `stage`,
+Surfaces the reason layer's output (`c2-entities`) — evidence-derived `stage`,
 `stage_signals`, the family rollup, VT ratios, and counts — which nothing in the
 ledger-based Command Center shows. Clicking a `c2_host` pins a filter that drives
 both the entity panels AND the ledger drill-down panels (served files / scanners
@@ -124,21 +124,29 @@ markdown_viz("e-note", "C2 Entities — note",
              "Entities) → *Filter for value* to pin the **detail page**: the "
              "entity's stage/signals plus the files it served, the scanners "
              "(src_ip) that called it, and the honeypots it hit.\n\n"
-             "**Stage**: unconfirmed · stage1_serving · stage2_c2. "
-             "**Signals**: callback_in_malware · known_malware · virustotal.")
+             "**Stage** (set by the evidence ladder alone): unconfirmed · "
+             "stage1_serving · stage2_c2. **Signals** are third-party "
+             "corroboration that never change the stage (GreyNoise model): "
+             "callback_in_malware · known_malware · virustotal · hassh_toolkit.")
 metric_viz("e-confirmed", "Confirmed C2s (stage2)", query="stage:stage2_c2")
 pie_viz("e-stage", "By Stage", "stage")
 table_viz("e-signals", "Stage Signals", "stage_signals")
 table_viz("e-families", "Families (entity rollup)", "families")
 table_viz("e-asn", "Top ASN Orgs", "latest.c2_asn_org")
 saved_search("e-entities", "Active C2 Entities",
-             ["c2_host", "stage", "stage_signals", "families", "max_evidence_rank",
-              "max_vt_ratio", "sighting_count", "sensor_count", "src_ip_count",
-              "distinct_files", "latest.c2_asn_org", "last_seen"], ENTITIES)
+             ["c2_host", "stage", "stage_signals", "attributed_toolkit", "families",
+              "max_evidence_rank", "max_vt_ratio", "vt_families", "sighting_count",
+              "sensor_count", "src_ip_count", "distinct_files", "latest.c2_asn_org",
+              "first_seen", "last_seen"], ENTITIES)
 # --- ledger drill-down (driven by the pinned c2_host filter) --------------
 saved_search("e-files", "Served Files (selected C2)",
-             ["sha256", "file_kind", "family", "size", "magic", "interpreter", "sensor_hostname"],
+             ["sha256", "sha1", "md5", "file_kind", "family", "size", "magic",
+              "interpreter", "hassh", "c2_url", "sensor_hostname"],
              LEDGER, query="evidence:served_file")
+# rank-2 chain provenance: which served file (c2_via_sha256) revealed each host.
+saved_search("e-chains", "C2 Chains (callback in malware)",
+             ["c2_host", "c2_host_kind", "c2_via_sha256", "src_ip", "sensor_hostname"],
+             LEDGER, query="evidence:file_callback")
 table_viz("e-scanners", "Scanners (src_ip)", "src_ip", dv=LEDGER)
 table_viz("e-sensors", "Honeypots Hit", "sensor_hostname", dv=LEDGER)
 
@@ -158,6 +166,7 @@ layout = [
     ("e-scanners",  16, 43, 16, 11, "visualization"),
     ("e-sensors",   32, 43, 16, 11, "visualization"),
     ("e-files",     0, 54, 48, 12, "search"),
+    ("e-chains",    0, 66, 48, 12, "search"),
 ]
 panels, refs = [], []
 for i, (oid, x, y, w, h, typ) in enumerate(layout, 1):

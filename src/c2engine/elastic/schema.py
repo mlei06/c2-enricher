@@ -58,6 +58,7 @@ INDEX_TEMPLATE: dict[str, Any] = {
                     "content": "full script source (served_file scripts only; binaries omit it)",
                     "callbacks": "onward hosts found inside this file (script text / binary strings)",
                     "c2_via_sha256": "file_callback rows: which served file (sha256) revealed this host",
+                    "hassh": "SSH client fingerprint of the observing session (attacker toolkit attribution)",
                     "src_ip": "attacker source IP",
                     "sensor_hostname": "honeypot that observed it",
                     "ts": "event time (session close)",
@@ -96,6 +97,7 @@ INDEX_TEMPLATE: dict[str, Any] = {
                 "content_truncated": {"type": "boolean"},
                 "callbacks": {"type": "keyword"},
                 "c2_via_sha256": {"type": "keyword"},
+                "hassh": {"type": "keyword"},
                 # Parity with stock stingar-* (fluentd include_tag_key).
                 "fluentd_tag": {"type": "keyword"},
             },
@@ -116,7 +118,9 @@ ENTITIES_TEMPLATE_NAME = "c2-entities"
 
 # dynamic:true — the reason job controls all writes (no untrusted input); we map
 # geo_point/typed fields explicitly and add the evidence_stage runtime field
-# (max_evidence_rank -> floor stage; the reason job's `stage` may escalate above).
+# (max_evidence_rank -> stage). Intel never raises stage above the evidence
+# ladder (GreyNoise model) — so `stage` and `evidence_stage` now coincide;
+# corroboration lives in stage_signals, not the stage.
 ENTITIES_TEMPLATE: dict[str, Any] = {
     "index_patterns": [ENTITIES_INDEX],
     "priority": 200,
@@ -133,9 +137,10 @@ ENTITIES_TEMPLATE: dict[str, Any] = {
                 ),
                 "fields": {
                     "c2_host": "the C2 host/IP (doc id; same field name on every index)",
-                    "stage": "FINAL stage: unconfirmed | stage1_serving | stage2_c2 (evidence floor, raised by intel; never demoted)",
-                    "evidence_stage": "runtime: stage from max_evidence_rank alone, before intel",
-                    "stage_signals": "why it's staged: callback_in_malware | known_malware | hassh_toolkit | virustotal",
+                    "stage": "stage from the evidence ladder (max evidence_rank): unconfirmed | stage1_serving | stage2_c2. Intel never raises it — corroboration lives in stage_signals (GreyNoise model)",
+                    "evidence_stage": "runtime: stage computed from max_evidence_rank at query time (coincides with `stage`)",
+                    "stage_signals": "third-party corroboration (annotation, does not change stage): callback_in_malware | known_malware | hassh_toolkit | virustotal",
+                    "attributed_toolkit": "attacker toolkit(s) inferred from session hassh (e.g. mirai-loader)",
                     "families": "distinct malware families this C2 served (e.g. trojan.mirai/mozi)",
                     "max_evidence_rank": "strongest evidence: 0=referenced, 1=served a file, 2=found in malware",
                     "first_seen": "earliest sighting",

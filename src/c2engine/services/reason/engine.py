@@ -1,8 +1,9 @@
 """Compute the C2 entity index: rollup (from the ledger) + intel overlay.
 
 One composite aggregation over ``stingarc2-*`` grouped by ``c2_host`` (restricted
-to the retention window) yields the rollup; the overlay adds stage escalation,
-families, and signals. Each entity is upserted with ``_id = c2_host``; entities
+to the retention window) yields the rollup; the overlay adds signals, families,
+and toolkit attribution (stage stays evidence-derived — intel never raises it).
+Each entity is upserted with ``_id = c2_host``; entities
 whose last sighting fell out of the window are deleted (decay).
 """
 
@@ -45,23 +46,42 @@ def load_known_shas() -> set[str]:
     return {s.lower() for s in _load_json("known_sha.json")}
 
 
+def load_hassh_toolkits() -> dict[str, str]:
+    """HASSH (lowercased) -> attacker toolkit name."""
+    return {k.lower(): v for k, v in _load_json("hassh_toolkits.json").items()}
+
+
 def compute_overlay(
-    max_rank: int, families: list[str], shas: list[str], known_shas: set[str]
+    max_rank: int,
+    families: list[str],
+    shas: list[str],
+    known_shas: set[str],
+    hasshes: list[str] | None = None,
+    hassh_toolkits: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Stage + signals + families. `stage` is the evidence floor, escalated by
-    intel; reason never demotes below the evidence rank."""
+    """Stage + signals + families (+ toolkit attribution). `stage` is derived
+    SOLELY from the evidence ladder (max evidence_rank). Intel adds
+    `stage_signals` and descriptive fields but never moves the stage — the
+    GreyNoise model: the evidence we observed sets the stage; known-malware /
+    VirusTotal / HASSH are third-party corroboration (signals), not classifiers."""
     signals: list[str] = []
     stage = _rank_to_stage(max_rank)
     if max_rank >= 2:
         signals.append("callback_in_malware")
     if {s.lower() for s in shas} & known_shas:
-        signals.append("known_malware")
-        stage = "stage2_c2"  # escalate
-    return {
+        signals.append("known_malware")  # annotate only; does not raise stage
+    overlay: dict[str, Any] = {
         "stage": stage,
         "stage_signals": sorted(signals),
         "families": sorted({f for f in families if f}),
     }
+    toolkits = sorted(
+        {tk for h in (hasshes or []) if (tk := (hassh_toolkits or {}).get(h.lower()))}
+    )
+    if toolkits:
+        overlay["attributed_toolkit"] = toolkits
+        overlay["stage_signals"] = sorted(set(overlay["stage_signals"]) | {"hassh_toolkit"})
+    return overlay
 
 
 def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
@@ -69,6 +89,7 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
     nowiso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     since = (now - datetime.timedelta(days=ENTITY_RETENTION_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
     known = load_known_shas()
+    hassh_toolkits = load_hassh_toolkits()
     # VT (M3): cache-first, budget-bounded, no-op without VT_API_KEY. One resolver
     # per pass so the per-run lookup budget is shared across all entities.
     vt = VtResolver(es, now=now)
@@ -99,6 +120,7 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
                 "geo": {"geo_centroid": {"field": "c2_geo"}},
                 "families": {"terms": {"field": "family", "size": 25}},
                 "shas": {"terms": {"field": "sha256", "size": 200}},
+                "hasshes": {"terms": {"field": "hassh", "size": 50}},
                 "latest": {"top_metrics": {
                     "metrics": [{"field": f} for f in _KW], "sort": [{"ts": "desc"}]}},
             }}},
@@ -112,8 +134,9 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
             max_rank = int(b["max_rank"]["value"] or 0)
             fams = [x["key"] for x in b["families"]["buckets"]]
             shas = [x["key"] for x in b["shas"]["buckets"]]
+            hasshes = [x["key"] for x in b["hasshes"]["buckets"]]
             metrics = (b["latest"]["top"][0]["metrics"] if b["latest"]["top"] else {})
-            overlay = compute_overlay(max_rank, fams, shas, known)
+            overlay = compute_overlay(max_rank, fams, shas, known, hasshes, hassh_toolkits)
             overlay = apply_vt(overlay, summarize_vt(vt.verdicts_for(shas)), min_mal)
             doc: dict[str, Any] = {
                 "c2_host": host,
@@ -152,8 +175,9 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
 
     expired = es.delete_by_query(ENTITIES_INDEX, {"query": {"range": {"last_seen": {"lt": since}}}})
     log.info("reason: %d entities upserted, %d expired (known-malware shas: %d, "
-             "vt lookups: %d, vt enabled: %s)",
-             updated, expired, len(known), vt.looked_up, vt.client.enabled)
+             "hassh toolkits: %d, vt lookups: %d, vt enabled: %s)",
+             updated, expired, len(known), len(hassh_toolkits), vt.looked_up,
+             vt.client.enabled)
     return updated
 
 

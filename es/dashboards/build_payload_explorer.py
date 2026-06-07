@@ -6,8 +6,19 @@ served, by family/over time, one row per distinct sha256, and the script source.
 import json
 
 LEDGER = "c2-ledger"  # data view id (stingarc2-*)
+VT = "c2-vt"          # data view id (c2-vt, per-sha256 VirusTotal verdicts)
 SERVED = "evidence:served_file"
 objs = []
+
+
+def data_view(dv_id, title, time_field):
+    # c2-ledger already exists in target stacks (Command Center imports first);
+    # c2-vt is new, so emit it so the verdict view's index pattern is created.
+    objs.append({
+        "id": dv_id, "type": "index-pattern",
+        "attributes": {"title": title, "timeFieldName": time_field},
+        "references": [],
+    })
 
 
 def _ssj(query=""):
@@ -98,27 +109,35 @@ def file_catalog(vid, title):
     _viz(vid, title, vis, query=SERVED)
 
 
-def saved_search(sid, title, columns, query=""):
+def saved_search(sid, title, columns, query="", dv=LEDGER):
     objs.append({
         "id": sid, "type": "search",
         "attributes": {"title": title, "description": "", "columns": columns, "sort": [],
                        "kibanaSavedObjectMeta": {"searchSourceJSON": _ssj(query)}},
         "references": [{"name": "kibanaSavedObjectMeta.searchSourceJSON.index",
-                        "type": "index-pattern", "id": LEDGER}],
+                        "type": "index-pattern", "id": dv}],
     })
 
+
+# c2-ledger rides on the Command Center import (as today); c2-vt is new here.
+data_view(VT, "c2-vt", "checked_at")
 
 markdown("pe-note", "Payloads — note",
          "### Payload Explorer\nEvery file a C2 served (`evidence:served_file`). "
          "**Click a sha256** in the File Catalog → *Filter for value* to see every "
          "C2 and sensor that served that exact artifact (cross-sensor dedupe). "
-         "Script source is the document itself.")
+         "Script source is the document itself. VirusTotal Verdicts joins the "
+         "fleet-wide `c2-vt` cache (one row per sha256).")
 families_over_time("pe-families-time", "Payloads — Families Over Time")
 distinct_files_by_family("pe-distinct", "Payloads — Distinct Files by Family")
 file_catalog("pe-catalog", "Payloads — File Catalog (per sha256)")
 saved_search("pe-script-src", "Payloads — Script Source",
-             ["sha256", "c2_host", "interpreter", "size", "content"],
+             ["sha256", "sha1", "md5", "c2_host", "c2_url", "interpreter", "size",
+              "callbacks", "hassh", "content"],
              query="file_kind:script")
+saved_search("pe-vt", "Payloads — VirusTotal Verdicts (per sha256)",
+             ["sha256", "vt_found", "vt_ratio", "vt_malicious", "vt_total",
+              "vt_families", "checked_at"], dv=VT)
 
 layout = [
     ("pe-note",          0,  0, 48, 4,  "visualization"),
@@ -126,6 +145,7 @@ layout = [
     ("pe-distinct",     32,  4, 16, 12, "visualization"),
     ("pe-catalog",       0, 16, 48, 14, "visualization"),
     ("pe-script-src",    0, 30, 48, 14, "search"),
+    ("pe-vt",            0, 44, 48, 12, "search"),
 ]
 panels, refs = [], []
 for i, (oid, x, y, w, h, typ) in enumerate(layout, 1):

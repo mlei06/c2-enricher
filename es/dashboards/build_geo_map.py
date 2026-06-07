@@ -52,8 +52,8 @@ points = {
         "applyForceRefresh": True,
         "sortField": "",
         "sortOrder": "desc",
-        "tooltipProperties": ["c2_host", "stage", "stage_signals", "families",
-                              "latest.c2_asn_org", "last_seen"],
+        "tooltipProperties": ["c2_host", "stage", "stage_signals", "attributed_toolkit",
+                              "families", "latest.c2_asn_org", "last_seen"],
         "topHitsGroupByTimeseries": False,
         "topHitsSplitField": "",
         "topHitsSize": 1,
@@ -98,7 +98,7 @@ MAP_OBJ = {
         "title": "C2 — Geo (active C2 infrastructure)",
         "description": ("One point per active C2 (c2-entities, decaying view), "
                         "colored by final stage. Tooltip: host/stage/signals/"
-                        "families/ASN/last_seen."),
+                        "toolkit/families/ASN/last_seen."),
         "layerListJSON": json.dumps([basemap, points]),
         "mapStateJSON": json.dumps({
             "zoom": 1.8,

@@ -19,3 +19,6 @@ stingar-hp.env
 **/stingar.env
 **/stingar-hp.env
 !*.example
+
+# Live Kibana saved-object backups (deployment state, not source)
+.kibana-backups/

@@ -1,4 +1,4 @@
-"""M3 VirusTotal: parsing, rollup/escalation, cache + budget resolution."""
+"""M3 VirusTotal: parsing, rollup, signal annotation, cache + budget resolution."""
 
 from __future__ import annotations
 
@@ -74,14 +74,17 @@ def test_summarize_vt_takes_max_and_unions_families() -> None:
     assert s["vt_families"] == ["gafgyt", "mirai"]
 
 
-def test_apply_vt_escalates_only_above_threshold() -> None:
+def test_apply_vt_signals_only_above_threshold() -> None:
+    """VT records the ratio always and adds the `virustotal` signal above
+    threshold, but never changes `stage` (enrichment, not classification)."""
     base = {"stage": "stage1_serving", "stage_signals": [], "families": []}
-    # below threshold: records ratio/families, no escalation
+    # below threshold: records ratio/families, no signal, stage untouched
     out = apply_vt(base, summarize_vt([_verdict("a", 0, total=70)]), min_malicious=1)
     assert out["stage"] == "stage1_serving" and "virustotal" not in out["stage_signals"]
-    # at/above threshold: escalate + signal
+    assert "max_vt_ratio" in out
+    # at/above threshold: signal added, stage STILL unchanged
     out = apply_vt(base, summarize_vt([_verdict("a", 40)]), min_malicious=1)
-    assert out["stage"] == "stage2_c2" and "virustotal" in out["stage_signals"]
+    assert out["stage"] == "stage1_serving" and "virustotal" in out["stage_signals"]
 
 
 def test_apply_vt_no_summary_is_noop() -> None:

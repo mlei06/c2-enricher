@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 VT_URL = "https://www.virustotal.com/api/v3/files/"
 DEFAULT_MAX_PER_RUN = 4  # == VT public 4/min; loop sleeps between runs
-DEFAULT_MIN_MALICIOUS = 1  # engines flagging malicious needed to escalate stage
+DEFAULT_MIN_MALICIOUS = 1  # engines flagging malicious needed to add the `virustotal` signal
 
 
 def _env_int(name: str, default: int) -> int:
@@ -182,7 +182,10 @@ def summarize_vt(verdicts: list[dict[str, Any]]) -> dict[str, Any]:
 def apply_vt(
     overlay: dict[str, Any], summary: dict[str, Any], min_malicious: int = DEFAULT_MIN_MALICIOUS
 ) -> dict[str, Any]:
-    """Overlay VT onto the stage/signals overlay. Escalates (never demotes)."""
+    """Overlay VT verdicts onto the entity. VT is ENRICHMENT, not a classifier
+    (the GreyNoise model): it records the detection ratio/families and adds a
+    `virustotal` signal when the file is flagged, but never changes `stage` —
+    the evidence ladder alone sets the stage; the VT ratio is analyst context."""
     if not summary:
         return overlay
     out = dict(overlay)
@@ -190,6 +193,5 @@ def apply_vt(
     if summary["vt_families"]:
         out["vt_families"] = summary["vt_families"]
     if summary["max_vt_malicious"] >= min_malicious:
-        out["stage"] = "stage2_c2"
         out["stage_signals"] = sorted(set(out.get("stage_signals", [])) | {"virustotal"})
     return out

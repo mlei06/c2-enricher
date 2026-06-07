@@ -38,7 +38,7 @@ curl -s -X POST "<kibana>/api/saved_objects/_import?overwrite=true" \
   | Top Threats | ledger | `terms(family)`, `evidence:served_file` |
   | Honeypots Hit | ledger | `terms(sensor_hostname)` |
   | Source IPs | ledger | `terms(src_ip)` |
-  | Payloads Served | ledger | served_file rows (sha256/family/kind) |
+  | Payloads Served | ledger | served_file rows (sha256/family/kind/callbacks/c2_url/hassh) |
   | Raw Sessions | sessions | the enriched `stingar-*` session docs |
 
 ## The pivot
@@ -55,8 +55,11 @@ File-first, over the ledger `served_file` rows (default window: last 30 days):
 - **File Catalog** — one row per `sha256` with count, distinct C2s, distinct
   sensors, latest seen, family. **Click a sha256 → Filter for value** to see
   every C2/sensor that served that exact artifact (cross-sensor dedupe).
-- **Script Source** — `file_kind:script` rows; the `content` column is the
-  script itself.
+- **Script Source** — `file_kind:script` rows (sha256/sha1/md5/c2_url/
+  interpreter/size/callbacks/hassh); the `content` column is the script itself.
+- **VirusTotal Verdicts (per sha256)** — the fleet-wide `c2-vt` cache
+  (sha256/vt_found/vt_ratio/vt_malicious/vt_total/vt_families/checked_at).
+  Bundles its own `c2-vt` data view (timeField `checked_at`).
 
 Generator: `build_payload_explorer.py`.
 
@@ -69,14 +72,22 @@ view (default window: last 30 days, on `last_seen`). Self-contained: bundles the
 - **By Stage / Stage Signals / Families (entity rollup) / Top ASN Orgs** —
   terms over `c2-entities` (`stage`, `stage_signals`, `families`,
   `latest.c2_asn_org`).
-- **Active C2 Entities** — one row per C2 with stage, signals, families,
-  `max_evidence_rank`, `max_vt_ratio`, counts, ASN, `last_seen`. **Click a
+- **Active C2 Entities** — one row per C2 with stage, signals,
+  `attributed_toolkit` (HASSH attribution), families, `max_evidence_rank`,
+  `max_vt_ratio`, `vt_families`, counts, ASN, `first_seen`/`last_seen`. **Click a
   `c2_host` → Filter for value** to pin the **detail page**.
 - The pinned `c2_host:X` filter also drives the ledger drill-down panels —
-  **Served Files** (sha/family/size/magic), **Scanners (src_ip)**, **Honeypots
+  **Served Files** (sha256/sha1/md5/family/size/magic/interpreter/hassh/c2_url),
+  **C2 Chains** (`evidence:file_callback` — `c2_via_sha256` provenance: which
+  served file revealed each onward host), **Scanners (src_ip)**, **Honeypots
   Hit** — because `c2_host` is shared across `c2-entities` and `stingarc2-*`.
   That single click is GreyNoise's "callback detail" page: the entity's verdict
   plus everything it did.
+
+`stage` is set by the evidence ladder alone (`max(evidence_rank)`); the stage
+signals — `callback_in_malware` · `known_malware` · `virustotal` ·
+`hassh_toolkit` — are third-party corroboration and never change the stage
+(the GreyNoise model: intel enriches, the evidence we observed classifies).
 
 Generator: `build_entity_view.py`.
 
@@ -95,7 +106,7 @@ The GreyNoise-style world map of active C2 infrastructure: a Maps-app object
 with an EMS basemap + a documents layer over `c2-entities` (`c2_geo`), point
 fill **categorical on the final `stage`** (red `stage2_c2` / amber
 `stage1_serving` / grey `unconfirmed`); tooltip carries host / stage / signals /
-families / ASN / last_seen. Because the entity index decays, the map is
+toolkit / families / ASN / last_seen. Because the entity index decays, the map is
 self-cleaning — dots vanish ~30 d after a C2 goes quiet.
 
 - **Hand-authored against Kibana 8.19** (generator `build_geo_map.py`). Maps
