@@ -94,7 +94,7 @@ Continuous **ES transform** over `stingarc2-*`, `group_by: c2_host`, with
 
 ### M2 — Reason layer: static intel escalation (no external dependency)
 
-New `c2engine/reason/` (re-derive the useful bits of the abandoned
+New `c2engine/services/reason/` (re-derive the useful bits of the abandoned
 `reasoning/data/`): a periodic job (`c2-engine reason --interval 300`) that,
 per entity updated since last run, reads its ledger rows and overlays judgment:
 
@@ -126,7 +126,7 @@ verdict: look up VT, cache fleet-wide.
   VT public 4/min — the loop sleeps minutes between runs); `VT_API_KEY` env,
   **disabled by default** (no key → no-op). Budget exhausted / 429 / error →
   skip, try next pass. Cache + low new-file volume keep it under VT's 500/day.
-- Overlay onto entity (in `c2engine/reason/vt.py`): `max_vt_ratio`, `vt_families[]`;
+- Overlay onto entity (in `c2engine/services/reason/vt.py`): `max_vt_ratio`, `vt_families[]`;
   `max_vt_malicious ≥ C2E_VT_MIN_MALICIOUS` (default 1) → escalate `stage` to
   stage2_c2 + `stage_signals += virustotal`. Pure `summarize_vt`/`apply_vt`
   (unit-tested); IO isolated in `VtClient`/`VtResolver`.
@@ -138,7 +138,7 @@ verdict: look up VT, cache fleet-wide.
 Read `c2-entities` where `stage ≥ stage1_serving AND last_seen ≥
 now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
 
-- **Shipped**: a stdlib HTTP server (`c2engine/feed/`, `c2-engine feed`
+- **Shipped**: a stdlib HTTP server (`c2engine/services/feed/`, `c2-engine feed`
   subcommand, `c2feed` compose service on :8088):
   - `GET /feed/blocklist.txt` — plain IP list (one per line, `#` header), IPs
     only (domains excluded from a firewall feed); firewalls/SIEMs pull this.

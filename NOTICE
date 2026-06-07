@@ -1,0 +1,18 @@
+c2-engine
+Copyright (c) 2026 Michael Lei
+Licensed under the MIT License (see LICENSE).
+
+This repository vendors a fork of Cowrie under `sensor/cowrie/`, which is NOT
+covered by the MIT License above. The vendored subtree retains its own upstream
+licensing:
+
+  - Cowrie — BSD 3-Clause License.
+    See `sensor/cowrie/LICENSE.rst` and `sensor/cowrie/LICENSES/BSD-3-Clause.txt`.
+  - Bundled ja4 code (`sensor/cowrie/src/cowrie/vendor/ja4/`) — FoxIO License 1.1.
+    See `sensor/cowrie/LICENSES/LicenseRef-FoxIO-1.1.txt`.
+
+Only the c2-engine code (`src/`, `es/`, `deploy/`, `docs/`, `tests/`) is offered
+under the MIT License. The `sensor/cowrie/` STINGAR overlay files authored for
+this project (`Dockerfile.stingar`, `stingar/`, `output/stingar.py`,
+`output/urlfetcher.py`, `plugins/stingar.py`) are likewise MIT-licensed, but live
+alongside the BSD-3-Clause upstream they extend.

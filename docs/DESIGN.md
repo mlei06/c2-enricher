@@ -225,36 +225,32 @@ malware" (sandbox). No sandbox here, by design.
 
 ```
 c2-engine/
-├── DESIGN.md                  ← this file
+├── docs/                      DESIGN.md (this) · DESIGN_PARITY.md · DESIGN_AGENT.md
 ├── src/c2engine/
-│   ├── ingest/                Fluent forward server in; re-emit client out
-│   ├── model/                 pydantic wire contracts (Session in; SessionOut,
-│   │                          C2Observation out) — written FIRST, m1
-│   ├── extract/
-│   │   ├── hosts.py           shell_reference rows from commands
-│   │   ├── files.py           served_file rows: hashes, magic, script/binary,
-│   │   │                      interpreter, content handling
-│   │   └── chains.py          callbacks from script content + binary strings
-│   │                          → callbacks[] + file_callback rows
-│   ├── enrich/
-│   │   ├── geo.py             MaxMind → c2_geo / c2_asn / c2_country
-│   │   ├── family.py          rules-based category.family/format labels
-│   │   └── session.py         playbook_hash, hassh, c2_hosts[], byte-strip
-│   └── reason/                ── PHASE 2, not in v1 ──
-├── es/
-│   ├── templates/             index template for stingarc2-* (geo_point!)
-│   ├── ilm/                   retention policy
-│   └── dashboards/            exported Kibana saved objects (§7)
-├── deploy/
-│   ├── docker-compose.overlay.yml   additive overlay for STINGAR server
-│   └── fluentd/                     match/route rules for the engine hop
-├── cli.py                     offline replay: session NDJSON → evidence NDJSON
-│                              (doubles as the backfill tool)
+│   ├── model/                 pydantic wire contracts (SessionIn; C2Observation)
+│   ├── analyze/               session-content parsers — iocs, banner, credentials,
+│   │                          shape (hassh), shell, canonical (playbook hash)
+│   ├── pipeline/              one session → enriched doc + ledger rows
+│   │   ├── extract/           evidence rows: hosts.py (shell_reference),
+│   │   │                      files.py (served_file), chains.py (file_callback)
+│   │   └── enrich/            geo.py (MaxMind), family.py (rules), session.py
+│   ├── elastic/               shared ES infra: client.py (EsWriter), schema.py
+│   │                          (index templates / ILM / index names)
+│   ├── services/              the three runnable deployables
+│   │   ├── ingest/            Fluent forward server in; direct ES out
+│   │   ├── reason/            entity rollup + intel + VirusTotal (out-of-band)
+│   │   └── feed/              blocklist/alert HTTP feed
+│   └── cli.py                 replay · serve · reason · feed
+├── es/                        index template, ILM, Kibana dashboard exports (§7)
+├── deploy/                    STINGAR + c2-engine compose, fluent.conf, env template
+├── sensor/                    cowrie fork + STINGAR overlay (sensor build)
 └── tests/                     golden session fixtures → expected rows
 ```
 
 No fields/lanes plugin registry (old design) — three evidence kinds and two
-outputs are plain functions until a fourth consumer exists.
+outputs are plain functions until a fourth consumer exists. The `reason/` and
+`feed/` services and the entity rollup are now built — see **DESIGN_PARITY.md**
+(GreyNoise-parity milestones) and **DESIGN_AGENT.md** (analyst agent).
 
 ### 5.2 Cowrie fork (sensor side — separate workstream)
 

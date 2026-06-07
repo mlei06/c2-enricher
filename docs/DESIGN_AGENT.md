@@ -88,7 +88,7 @@ These help our own agent AND a future Agent Builder equally. **Status: done
    a `fields` legend explaining every field and enum (`evidence`, `stage`,
    `evidence_rank` 0/1/2, `file_kind`). `_meta` is free-form (no 50-char limit
    that field-level `meta` imposes) and is returned by `get_index_mapping`, which
-   is what an LLM reads to choose fields. In `es_assets.py` + the `es/` copy.
+   is what an LLM reads to choose fields. In `elastic/schema.py` + the `es/` copy.
 2. **Flatten `nested` arrays** ✅ (audited, non-issue) — live audit of all three
    index patterns found **zero** `nested`-typed fields. Our templates use flat
    `keyword[]` (`callbacks`); the session index's arrays dynamic-map to `object`,
