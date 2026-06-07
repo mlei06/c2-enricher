@@ -8,10 +8,10 @@ from typing import Any
 import msgpack
 import pytest
 
-from c2engine.ingest import server
-from c2engine.ingest.es import EsWriter, _daily_index
-from c2engine.ingest.es_assets import INDEX_TEMPLATE_NAME
-from c2engine.ingest.forward import parse_frame
+from c2engine.services.ingest import server
+from c2engine.elastic.client import EsWriter, _daily_index
+from c2engine.elastic.schema import INDEX_TEMPLATE_NAME
+from c2engine.services.ingest.forward import parse_frame
 
 
 def _roundtrip(frame: list[Any]) -> object:
@@ -58,7 +58,7 @@ def test_packed_forward_entries_as_str_blob() -> None:
     # exactly how fluentd sends it.
     frame_bytes = msgpack.packb(["stingar.enrichable.cowrie", entries, {"chunk": "x"}],
                                 use_bin_type=False)
-    from c2engine.ingest.forward import _unpacker
+    from c2engine.services.ingest.forward import _unpacker
     up = _unpacker()
     up.feed(frame_bytes)
     msg = next(iter(up))
@@ -103,7 +103,7 @@ def test_ensure_bootstrap_installs_policy_and_templates(monkeypatch) -> None:
 
 
 def test_entities_template_shape() -> None:
-    from c2engine.ingest.es_assets import ENTITIES_TEMPLATE
+    from c2engine.elastic.schema import ENTITIES_TEMPLATE
     props = ENTITIES_TEMPLATE["template"]["mappings"]["properties"]
     assert props["c2_geo"]["type"] == "geo_point"
     assert props["stage"]["type"] == "keyword"
@@ -113,7 +113,7 @@ def test_entities_template_shape() -> None:
 
 def test_templates_carry_meta_docs() -> None:
     # _meta documents fields for humans AND LLM agents (read via get_index_mapping).
-    from c2engine.ingest.es_assets import ENTITIES_TEMPLATE, INDEX_TEMPLATE
+    from c2engine.elastic.schema import ENTITIES_TEMPLATE, INDEX_TEMPLATE
     for tmpl in (INDEX_TEMPLATE, ENTITIES_TEMPLATE):
         meta = tmpl["template"]["mappings"]["_meta"]
         assert meta["description"] and meta["fields"]["c2_host"]

@@ -9,16 +9,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from c2engine.core import banner as banner_mod
-from c2engine.core import canonical as canonical_mod
-from c2engine.core import credentials as cred_mod
-from c2engine.core import iocs as iocs_mod
-from c2engine.core import shape as shape_mod
-from c2engine.core import shell as shell_mod
-from c2engine.core.banner import Cpe
-from c2engine.core.credentials import CredEnrichment
-from c2engine.core.iocs import IocBundle
-from c2engine.core.shape import ShapeFeatures
+from c2engine.analyze import banner as banner_mod
+from c2engine.analyze import canonical as canonical_mod
+from c2engine.analyze import credentials as cred_mod
+from c2engine.analyze import iocs as iocs_mod
+from c2engine.analyze import shape as shape_mod
+from c2engine.analyze import shell as shell_mod
+from c2engine.analyze.banner import Cpe
+from c2engine.analyze.credentials import CredEnrichment
+from c2engine.analyze.iocs import IocBundle
+from c2engine.analyze.shape import ShapeFeatures
 from c2engine.model import SessionIn
 
 

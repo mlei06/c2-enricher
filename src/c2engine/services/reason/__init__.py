@@ -10,6 +10,6 @@ Runs out-of-band (``c2-engine reason [--interval N]``) — never on the ingest
 hot path, so it can't stall sessions.
 """
 
-from c2engine.reason.engine import compute_overlay, run, run_once
+from c2engine.services.reason.engine import compute_overlay, run, run_once
 
 __all__ = ["compute_overlay", "run", "run_once"]

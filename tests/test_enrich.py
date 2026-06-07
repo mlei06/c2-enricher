@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from c2engine.context import build_context
-from c2engine.extract import all_observations
+from c2engine.pipeline.extract import all_observations
 from c2engine.model import SessionIn
 from c2engine.pipeline import process
 

@@ -12,7 +12,7 @@ from typing import Any
 
 from urllib.parse import quote
 
-from c2engine.ingest.es_assets import (
+from c2engine.elastic.schema import (
     ENTITIES_TEMPLATE,
     ENTITIES_TEMPLATE_NAME,
     ILM_POLICY,

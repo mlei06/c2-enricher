@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from c2engine.reason.vt import (
+from c2engine.services.reason.vt import (
     VtResolver,
     apply_vt,
     parse_vt_file,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from c2engine.reason.engine import _rank_to_stage, compute_overlay, load_known_shas
+from c2engine.services.reason.engine import _rank_to_stage, compute_overlay, load_known_shas
 
 KNOWN = {"6f52dccd62f25ee71277c6b39b1604ab379e4d2080c90fe6194e77cda54a854c"}
 

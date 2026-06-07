@@ -11,8 +11,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from c2engine.ingest.es import EsWriter
-from c2engine.ingest.es_assets import ENTITIES_INDEX
+from c2engine.elastic.client import EsWriter
+from c2engine.elastic.schema import ENTITIES_INDEX
 
 log = logging.getLogger(__name__)
 

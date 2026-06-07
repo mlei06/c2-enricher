@@ -22,8 +22,8 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from c2engine.ingest.es import EsWriter
-from c2engine.ingest.es_assets import VT_INDEX, VT_TTL_DAYS
+from c2engine.elastic.client import EsWriter
+from c2engine.elastic.schema import VT_INDEX, VT_TTL_DAYS
 
 log = logging.getLogger(__name__)
 

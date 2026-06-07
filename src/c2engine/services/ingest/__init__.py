@@ -7,6 +7,6 @@ Only new sensors emit the enrichable tag family; stock ``stingar.events.*``
 sensors keep the unchanged Fluentd -> ES path.
 """
 
-from c2engine.ingest.server import serve
+from c2engine.services.ingest.server import serve
 
 __all__ = ["serve"]

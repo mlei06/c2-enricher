@@ -20,7 +20,7 @@ import base64
 import binascii
 import hashlib
 
-from c2engine.enrich.family import label as family_label
+from c2engine.pipeline.enrich.family import label as family_label
 from c2engine.model import C2Observation, FileRef, SessionIn
 from c2engine.model.observation import CONTENT_CAP
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from c2engine.feed.server import (
+from c2engine.services.feed.server import (
     _render_blocklist,
     _stages_at_or_above,
     build_feed,

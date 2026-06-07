@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from c2engine.extract import all_observations
-from c2engine.extract._util import find_hosts, interpreter_of, sniff_magic
+from c2engine.pipeline.extract import all_observations
+from c2engine.pipeline.extract._util import find_hosts, interpreter_of, sniff_magic
 from c2engine.model import SessionIn
 from c2engine.pipeline import INDEX_C2, INDEX_SESSION, process
 

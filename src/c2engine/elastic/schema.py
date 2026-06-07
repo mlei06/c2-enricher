@@ -1,6 +1,6 @@
 """ES index template + ILM policy for ``stingarc2-*``, as in-package data.
 
-Single source of truth for both the engine's startup bootstrap (ingest/es.py)
+Single source of truth for both the engine's startup bootstrap (elastic/client.py)
 and the repo-root ``es/`` copies used by the manual README path. ``geo_point``
 and ``ip`` types never dynamic-map, so the template MUST exist before the first
 ledger write or the C2 map silently breaks.

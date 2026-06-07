@@ -16,9 +16,9 @@ import os
 import time
 from typing import Any
 
-from c2engine.ingest.es import EsWriter
-from c2engine.ingest.es_assets import ENTITIES_INDEX, ENTITY_RETENTION_DAYS
-from c2engine.reason.vt import (
+from c2engine.elastic.client import EsWriter
+from c2engine.elastic.schema import ENTITIES_INDEX, ENTITY_RETENTION_DAYS
+from c2engine.services.reason.vt import (
     DEFAULT_MIN_MALICIOUS,
     VtResolver,
     apply_vt,
@@ -37,7 +37,7 @@ def _rank_to_stage(rank: int) -> str:
 
 
 def _load_json(name: str) -> Any:
-    return json.loads((importlib.resources.files("c2engine.reason.data") / name).read_text())
+    return json.loads((importlib.resources.files("c2engine.services.reason.data") / name).read_text())
 
 
 def load_known_shas() -> set[str]:

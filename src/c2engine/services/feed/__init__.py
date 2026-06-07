@@ -13,6 +13,6 @@ feed never carries stale C2s by design (DESIGN_PARITY.md §3 M4). Read-only;
 never on the ingest hot path.
 """
 
-from c2engine.feed.server import build_feed, serve
+from c2engine.services.feed.server import build_feed, serve
 
 __all__ = ["build_feed", "serve"]

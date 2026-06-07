@@ -20,8 +20,8 @@ import sys
 from collections.abc import Iterator
 from typing import Any
 
-from c2engine.enrich.geo import GeoEnricher
-from c2engine.ingest import serve
+from c2engine.pipeline.enrich.geo import GeoEnricher
+from c2engine.services.ingest import serve
 from c2engine.pipeline import process
 
 
@@ -104,14 +104,14 @@ def _cmd_serve(_args: argparse.Namespace) -> int:
 
 
 def _cmd_reason(args: argparse.Namespace) -> int:
-    from c2engine.reason import run
+    from c2engine.services.reason import run
 
     run(interval=args.interval)
     return 0
 
 
 def _cmd_feed(_args: argparse.Namespace) -> int:
-    from c2engine.feed import serve as serve_feed
+    from c2engine.services.feed import serve as serve_feed
 
     serve_feed()
     return 0

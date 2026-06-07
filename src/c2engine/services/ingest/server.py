@@ -7,9 +7,9 @@ import logging
 import os
 from typing import Any
 
-from c2engine.enrich.geo import GeoEnricher
-from c2engine.ingest.es import EsWriter
-from c2engine.ingest.forward import ForwardServer
+from c2engine.pipeline.enrich.geo import GeoEnricher
+from c2engine.elastic.client import EsWriter
+from c2engine.services.ingest.forward import ForwardServer
 from c2engine.pipeline import TAG_INBOUND, process
 
 log = logging.getLogger(__name__)

@@ -10,15 +10,15 @@ from dataclasses import dataclass
 from typing import Any
 
 from c2engine.context import build_context
-from c2engine.enrich.geo import GeoEnricher
-from c2engine.enrich.session import enrich_session
-from c2engine.extract import all_observations
+from c2engine.pipeline.enrich.geo import GeoEnricher
+from c2engine.pipeline.enrich.session import enrich_session
+from c2engine.pipeline.extract import all_observations
 from c2engine.model import C2Observation, SessionIn
 
 #: Inbound tag from new sensors (output_stingar on the cowrie fork).
 TAG_INBOUND = "stingar.enrichable.cowrie"
 
-#: ES index prefixes (logstash_format, daily rotation) — written by ingest/es.py.
+#: ES index prefixes (logstash_format, daily rotation) — written by elastic/client.py.
 INDEX_SESSION = "stingar"
 INDEX_C2 = "stingarc2"
 

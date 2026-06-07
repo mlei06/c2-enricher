@@ -30,12 +30,12 @@ def split_url(url: str) -> tuple[str, int | None, str]:
 def find_hosts(text: str) -> list[tuple[str, str]]:
     """Every (host, kind) referenced in ``text`` — IPs and full hostnames.
 
-    Delegates to the shared :mod:`c2engine.core.iocs` extractor (expanding
+    Delegates to the shared :mod:`c2engine.analyze.iocs` extractor (expanding
     shell wrappers first) so file-content callbacks and the session's
     ``c2_hosts`` come from one source. Order-preserving, de-duplicated.
     """
-    from c2engine.core import iocs as iocs_mod
-    from c2engine.core import shell as shell_mod
+    from c2engine.analyze import iocs as iocs_mod
+    from c2engine.analyze import shell as shell_mod
 
     bundle = iocs_mod.extract(shell_mod.expanded_text([text]))
     return [(h, classify_host(h)) for h in bundle.c2_hosts]

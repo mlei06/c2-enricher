@@ -26,10 +26,10 @@ from datetime import UTC, datetime
 
 import msgpack
 
-from c2engine.ingest.es import EsWriter
-from c2engine.ingest.forward import ForwardServer
-from c2engine.ingest.server import _handle_record
-from c2engine.enrich.geo import GeoEnricher
+from c2engine.elastic.client import EsWriter
+from c2engine.services.ingest.forward import ForwardServer
+from c2engine.services.ingest.server import _handle_record
+from c2engine.pipeline.enrich.geo import GeoEnricher
 
 ES = f"http://{os.environ.get('C2E_ES_HOST', 'localhost')}:{os.environ.get('C2E_ES_PORT', '19200')}"
 PORT = 24230
