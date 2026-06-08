@@ -94,7 +94,7 @@ def extract(text: str, existing_urls: list[str] | None = None) -> IocBundle:
     b.urls = _dedupe(urls)
 
     ips_raw = _RE_IPV4.findall(blob) + _RE_IPV6.findall(blob)
-    b.ips = _dedupe(ip.split(":")[0] if ip.count(":") == 1 else ip for ip in ips_raw)
+    ips = [ip.split(":")[0] if ip.count(":") == 1 else ip for ip in ips_raw]
 
     # hostnames feed the c2_hosts PIVOT, so take them only from real URLs —
     # clear intent. Bare _RE_DOMAIN matches over shell text are too noisy for a
@@ -104,11 +104,21 @@ def extract(text: str, existing_urls: list[str] | None = None) -> IocBundle:
     domains: list[str] = []
     for u in b.urls:
         h = (urlparse(u).hostname or "") if "://" in u else ""
-        if h and not is_ip(h):
+        if not h:
+            continue
+        if is_ip(h):
+            # An IP that appears ONLY as a URL host — a download URL recorded by
+            # the sensor (existing_urls), or one hidden in a wrapper so it never
+            # appears as a bare token in the command text — is still a C2
+            # endpoint. Fold it into ips so it reaches c2_hosts; otherwise it
+            # survives only in `urls` and gets no shell_reference ledger row.
+            ips.append(h)
+        else:
             hostnames.append(h)
             d = _etld1(h)
             if d:
                 domains.append(d)
+    b.ips = _dedupe(ips)
     for cand in _RE_DOMAIN.findall(blob):
         if is_ip(cand):
             continue

