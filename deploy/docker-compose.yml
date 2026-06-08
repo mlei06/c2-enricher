@@ -1,6 +1,6 @@
 # STINGAR platform stack + c2-engine (v2.3 images).
 # Run from this directory:
-#   cp env.txt stingar.env   # edit secrets/hostnames first
+#   cp stingar.env.example stingar.env   # fill every CHANGEME first
 #   docker compose up -d
 services:
   docs:
@@ -68,25 +68,22 @@ services:
         condition: service_healthy
 
   # M2 reason layer: rebuilds the c2-entities rollup + intel overlay every 5 min
-  # (rollup from the ledger + stage escalation / families). Out-of-band — not on
-  # the ingest path. Same image; just a different command.
+  # (stage from the evidence ladder; intel/VT/abuse.ch annotate, never escalate).
+  # Out-of-band — not on the ingest path. Same image; just a different command.
   c2reason:
     image: michaeldockerlei/c2-engine:v2.3
     restart: on-failure
     command: ["reason", "--interval", "300"]
+    # Optional intel enrichment is configured via stingar.env (see
+    # stingar.env.example): VT_API_KEY (M3) and ABUSECH_AUTH_KEY (M6) turn the
+    # respective feeds on; C2E_VT_* / C2E_INTEL_* tune them. Absent → that
+    # enrichment is simply off and the engine uses its built-in defaults.
+    # (env_file does not override the `environment:` block below.)
+    env_file:
+      - stingar.env
     environment:
       C2E_ES_HOST: elasticsearch
       C2E_ES_PORT: "9200"
-      # M3 VirusTotal (off unless VT_API_KEY is set in the env/stingar.env).
-      # Public key: leave C2E_VT_MAX_PER_RUN<=4 (== VT 4/min). Cached in c2-vt.
-      VT_API_KEY: "${VT_API_KEY:-}"
-      C2E_VT_MAX_PER_RUN: "${C2E_VT_MAX_PER_RUN:-4}"
-      C2E_VT_MIN_MALICIOUS: "${C2E_VT_MIN_MALICIOUS:-1}"
-      # M6 abuse.ch feeds (off unless ABUSECH_AUTH_KEY is set; free key at
-      # auth.abuse.ch). Cached in c2-intel, refreshed every C2E_INTEL_TTL_HOURS.
-      ABUSECH_AUTH_KEY: "${ABUSECH_AUTH_KEY:-}"
-      C2E_INTEL_TTL_HOURS: "${C2E_INTEL_TTL_HOURS:-12}"
-      C2E_INTEL_FEEDS: "${C2E_INTEL_FEEDS:-threatfox,urlhaus,feodo}"
     depends_on:
       elasticsearch:
         condition: service_healthy

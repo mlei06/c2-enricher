@@ -19,3 +19,9 @@ Static intel the reason layer (M2) matches against. Plain data, no code.
   extraction time (`extract/_base.py`), so the reason job still reads only the
   ledger. Seeded with the test fixture's HASSH (`mirai-loader`) to demonstrate
   the path; replace/extend with a real HASSH corpus.
+
+Not here: the **abuse.ch feeds** (M6 — ThreatFox / URLhaus / Feodo) are *fetched
+at runtime*, not seeded. They cache fleet-wide in the `c2-intel` index (refreshed
+on a TTL) rather than living as files in this directory — see
+`reason/intel.py` and DESIGN_PARITY.md §M6. Same annotation rule applies: a feed
+match adds an `intel_sources` / `stage_signal`, never a stage change.

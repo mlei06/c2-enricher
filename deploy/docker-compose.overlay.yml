@@ -1,5 +1,5 @@
 # Legacy overlay — adds c2-engine to an EXISTING stock STINGAR compose.
-# Mount deploy/fluent.conf (or merge deploy/fluentd/c2-engine.conf) so only
+# Mount deploy/fluent.conf over the stock fluentd config so only
 # stingar.enrichable.* is forwarded; stock stingar.events.* stays on ES.
 #
 # Run from the STINGAR root:

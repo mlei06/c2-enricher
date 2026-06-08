@@ -238,7 +238,7 @@ c2-engine/
 │   │                          (index templates / ILM / index names)
 │   ├── services/              the three runnable deployables
 │   │   ├── ingest/            Fluent forward server in; direct ES out
-│   │   ├── reason/            entity rollup + intel + VirusTotal (out-of-band)
+│   │   ├── reason/            entity rollup + intel + VirusTotal + abuse.ch (out-of-band)
 │   │   └── feed/              blocklist/alert HTTP feed
 │   └── cli.py                 replay · serve · reason · feed
 ├── es/                        index template, ILM, Kibana dashboard exports (§7)
@@ -400,7 +400,7 @@ clicking a sha256 answers "which C2s/sensors saw this exact artifact."
 | Item | Trigger |
 |---|---|
 | `stingarc2-entities` (ES transform, retention_policy max_age=30d) | reason layer ships, OR a downstream consumer needs a dumb feed (blocklist API) |
-| `reason/` intel corroboration (known-malware SHA, HASSH toolkits, VT) | needs the entity index as its writable home |
+| `reason/` intel corroboration (known-malware SHA, HASSH toolkits, VT, abuse.ch feeds) — annotates, never escalates stage | needs the entity index as its writable home |
 | Binary sample archive (`stingar-binaries-*`) | someone actually needs the bytes, not just hashes |
 | Sensor-side byte hashing (lighter transport) | Fluentd channel strain in practice |
 | Sandbox detonation | never (out of scope by design) |

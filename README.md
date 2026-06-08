@@ -8,8 +8,10 @@ Fluentd forwards only those to c2-engine, which writes enriched sessions plus an
 append-only **C2 evidence ledger** (`stingarc2-*`) directly to Elasticsearch.
 Stock sensors keep the unchanged `stingar.events.*` path, so the two run
 side-by-side. An out-of-band reason job rolls the ledger up into a decaying
-per-C2 entity view (`c2-entities`) with intel/VirusTotal staging, and a feed
-service serves a fresh blocklist.
+per-C2 entity view (`c2-entities`): the evidence ladder alone sets each C2's
+stage, while third-party intel (known-malware SHAs, HASSH toolkits, VirusTotal,
+abuse.ch feeds) annotates it without ever moving the stage — the GreyNoise
+model. A feed service serves a fresh blocklist over the result.
 
 **Start with [docs/DESIGN.md](docs/DESIGN.md)** — the founding design document
 (architecture, data contracts, evidence/stage model, dashboards, decision
@@ -46,7 +48,7 @@ src/c2engine/
 ├── elastic/      shared ES infra — client.py (EsWriter), schema.py (templates/ILM/names)
 ├── services/     the three runnable deployables
 │   ├── ingest/   Fluent forward server in → direct ES out
-│   ├── reason/   entity rollup + intel staging + VirusTotal (out-of-band)
+│   ├── reason/   entity rollup + intel corroboration (VirusTotal, abuse.ch) (out-of-band)
 │   └── feed/     blocklist/alert HTTP feed over c2-entities
 └── cli.py        subcommands: replay · serve · reason · feed
 es/               index template, ILM policy, Kibana dashboard exports
@@ -59,7 +61,7 @@ tests/            golden session fixtures → expected evidence rows
 
 ```bash
 c2-engine serve     # Fluent-forward ingest server (:24230) → ES
-c2-engine reason    # rebuild c2-entities rollup + intel/VT overlay (--interval N to loop)
+c2-engine reason    # rebuild c2-entities rollup + intel overlay (VT + abuse.ch feeds) (--interval N to loop)
 c2-engine feed      # blocklist/alert HTTP feed (:8088) over c2-entities
 c2-engine replay session.ndjson[.gz]   # offline pipeline / backfill → evidence NDJSON
 ```
@@ -77,9 +79,9 @@ mypy src/c2engine
 ## Deployment & sensor
 
 See [deploy/README.md](deploy/README.md) for the compose stack (ingest + reason
-+ feed services, Fluentd routing, the M3 VirusTotal and M4 blocklist setup) and
-`sensor/` for the cowrie fork + STINGAR overlay that produces the enrichable
-session docs.
++ feed services, Fluentd routing, and the optional intel enrichment — M3
+VirusTotal, M6 abuse.ch feeds — plus the M4 blocklist setup) and `sensor/` for
+the cowrie fork + STINGAR overlay that produces the enrichable session docs.
 
 ## License
 

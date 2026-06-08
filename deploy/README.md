@@ -11,8 +11,8 @@ directly to Elasticsearch.
 ```bash
 cd deploy
 
-# 1. Configure environment (edit secrets and hostnames)
-cp env.txt stingar.env
+# 1. Configure environment (fill every CHANGEME — secrets + hostnames)
+cp stingar.env.example stingar.env
 $EDITOR stingar.env
 
 # 2. TLS certs + nginx config (from your STINGAR install)
@@ -106,16 +106,16 @@ the feed window narrows further.
 # active C2 IPs, one per line (firewalls/SIEMs pull this)
 curl localhost:8088/feed/blocklist.txt
 
-# only stage-2 (intel-confirmed) C2s seen in the last 3 days
+# only stage-2 (referenced inside captured malware) C2s seen in the last 3 days
 curl 'localhost:8088/feed/blocklist.txt?stage=2&window=3d'
 
 # full entity summaries (stage, families, signals, asn_org, ...) incl. domains
 curl localhost:8088/feed/c2.json
 ```
 
-Params: `?stage=1|2` (min **final** stage — the intel-escalated `stage`, not raw
-evidence rank), `?window=<int>[smhd]` (default `7d`), `?limit=N` (≤10000). For
-off-box pulls, widen the port mapping or add an nginx route.
+Params: `?stage=1|2` (min `stage` — set by the evidence ladder; intel annotates
+but never raises it), `?window=<int>[smhd]` (default `7d`), `?limit=N` (≤10000).
+For off-box pulls, widen the port mapping or add an nginx route.
 
 ## Layout
 
@@ -123,8 +123,7 @@ off-box pulls, widen the port mapping or add an nginx route.
 |------|---------|
 | `docker-compose.yml` | Full STINGAR v2.3 stack + `c2engine` / `c2reason` / `c2feed` |
 | `fluent.conf` | Stock `stingar.events.*` path + enrichable hop |
-| `env.txt` | Environment template — copy to `stingar.env` |
-| `fluentd/c2-engine.conf` | Enrichable-hop snippet for manual merges |
+| `stingar.env.example` | Server env template — copy to `stingar.env`, fill CHANGEME |
 
 Geo databases in the c2-engine image: the **ASN** db is copied from
 `4warned/fluentd:v2.3` at build time, but the **City** db is fetched fresh from
@@ -142,5 +141,5 @@ this change continue on the legacy path automatically.
 ## Overlay (existing installs)
 
 `docker-compose.overlay.yml` adds only the `c2engine` service. Mount
-`deploy/fluent.conf` over the stock fluentd config (or merge
-`fluentd/c2-engine.conf` into your existing file).
+`deploy/fluent.conf` over the stock fluentd config (it carries both the stock
+`stingar.events.*` path and the enrichable hop).
