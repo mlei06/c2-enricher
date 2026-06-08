@@ -102,9 +102,14 @@ def file_catalog(vid, title):
         {"id": "2", "enabled": True, "type": "terms", "schema": "bucket",
          "params": {"field": "sha256", "orderBy": "1", "order": "desc", "size": 100,
                     "otherBucket": False, "missingBucket": False}},
+        # missingBucket:True so a sha256 with no rules-based family still gets a
+        # catalog row (labelled "(unclassified)") — novel/unknown payloads are
+        # exactly what a file catalog must surface. The by-family CHART panels
+        # keep missingBucket:False (a "no family" slice/series is just noise).
         {"id": "3", "enabled": True, "type": "terms", "schema": "bucket",
          "params": {"field": "family", "orderBy": "1", "order": "desc", "size": 1,
-                    "otherBucket": False, "missingBucket": False}},
+                    "otherBucket": False, "missingBucket": True,
+                    "missingBucketLabel": "(unclassified)"}},
     ]}
     _viz(vid, title, vis, query=SERVED)
 
