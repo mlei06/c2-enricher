@@ -99,6 +99,7 @@ def test_ensure_bootstrap_installs_policy_and_templates(monkeypatch) -> None:
         f"_index_template/{INDEX_TEMPLATE_NAME}",
         "_index_template/c2-entities",  # entity index is reason-owned, no transform
         "_index_template/c2-vt",  # VirusTotal verdict cache (M3)
+        "_index_template/c2-intel",  # abuse.ch intel feed cache (M6)
     ]
 
 

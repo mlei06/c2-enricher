@@ -82,6 +82,11 @@ services:
       VT_API_KEY: "${VT_API_KEY:-}"
       C2E_VT_MAX_PER_RUN: "${C2E_VT_MAX_PER_RUN:-4}"
       C2E_VT_MIN_MALICIOUS: "${C2E_VT_MIN_MALICIOUS:-1}"
+      # M6 abuse.ch feeds (off unless ABUSECH_AUTH_KEY is set; free key at
+      # auth.abuse.ch). Cached in c2-intel, refreshed every C2E_INTEL_TTL_HOURS.
+      ABUSECH_AUTH_KEY: "${ABUSECH_AUTH_KEY:-}"
+      C2E_INTEL_TTL_HOURS: "${C2E_INTEL_TTL_HOURS:-12}"
+      C2E_INTEL_FEEDS: "${C2E_INTEL_FEEDS:-threatfox,urlhaus,feodo}"
     depends_on:
       elasticsearch:
         condition: service_healthy

@@ -183,14 +183,50 @@ now-<window>` (default 7d) → fresh, high-confidence C2 IPs.
 - **Family classifier** ⏳ deferred — data-gated: nothing to harvest until real
   `served_file` volume accumulates (current captures are synthetic / VT-unknown).
 
+### M6 — abuse.ch intel feeds (cached, bulk, optional) ✅ done 2026-06-07
+
+In the reason job, corroborate each entity against the ThreatFox / URLhaus /
+Feodo Tracker `recent` exports.
+
+- **Cache index** `c2-intel` (id = `source:value`): `{source, ioc_type, value,
+  host, malware[], tags[], fetched_at}`. Named **outside** the `stingarc2-*` glob
+  (like `c2-vt`). The reason job bulk-downloads each feed's `recent` export on a
+  TTL (`INTEL_TTL_HOURS=12`, env `C2E_INTEL_TTL_HOURS`), stores the normalized
+  IOCs, purges the prior generation, then loads them into memory once per pass.
+- **Bulk, not per-item** (the key contrast with M3/VT): VT is per-`sha256` API
+  lookups, so it needs a per-item budget; abuse.ch ships whole lists, so we fetch
+  the `recent` window once per TTL and match locally — no per-entity rate limit.
+  Using `recent` (not `full`) keeps the in-memory set small; entities decay in
+  30d so the recent window is sufficient.
+- **Auth + disabled by default**: abuse.ch now requires a free Auth-Key
+  (auth.abuse.ch) sent on every download. `ABUSECH_AUTH_KEY` env, **no key →
+  no-op** (`IntelClient.enabled=False`); 401 self-disables the process. Feed URLs
+  overridable via `C2E_INTEL_URL_<SOURCE>`; feeds selectable via
+  `C2E_INTEL_FEEDS`. Slow/down feed → skip, retry next refresh.
+- **Matching** (in `c2engine/services/reason/intel.py`): an entity matches on
+  `c2_url` (exact), `c2_host`/`c2_resolved_ip`/URL-netloc (host index), or
+  `sha256` (ThreatFox hash IOCs). A match adds `intel_sources[]` (`threatfox` |
+  `urlhaus` | `feodo`), `intel_malware[]` (feed vocabulary, distinct from the
+  rules-based `families`), and `stage_signals += <source>`. Intel is **enrichment,
+  not a classifier** — it never changes `stage` (the GreyNoise model). Pure
+  parsers + `apply_intel` (unit-tested); IO isolated in `IntelClient`; the
+  `IntelMatcher` is built once and reused across passes.
+- **Exit:** ✅ entities carry cross-validated corroboration from the major open
+  C2 feeds; without a key the engine behaves exactly as before.
+
 ## 4. Data contracts (new)
 
-- `c2-entities` — §3 M1/M2/M3 fields. Index template + ILM via
+- `c2-entities` — §3 M1/M2/M3/M6 fields (incl. `intel_sources[]`,
+  `intel_malware[]`). Index template + ILM via
   `ensure_bootstrap`. `c2_geo: geo_point`, `*_seen: date`, ints as `long/byte`.
 - `c2-vt` — `{sha256 keyword, vt_found bool, vt_malicious int, vt_suspicious int,
   vt_total int, vt_ratio float, vt_families keyword[], checked_at date}`. Named
   outside the `stingarc2-*` glob (template-collision avoidance). Re-lookup window
   `VT_TTL_DAYS=30` enforced in code via `checked_at`.
+- `c2-intel` — `{source keyword, ioc_type keyword, value keyword, host keyword,
+  malware keyword[], tags keyword[], fetched_at date}` (id = `source:value`).
+  abuse.ch IOC cache, refreshed every `INTEL_TTL_HOURS=12`. Named outside the
+  `stingarc2-*` glob.
 - Stage enum everywhere: `unconfirmed | stage1_serving | stage2_c2` (rank 0/1/2).
   `stage` (reason) == `evidence_stage` — both derived from `max(evidence_rank)`;
   intel never moves the stage (it adds `stage_signals`).

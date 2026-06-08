@@ -71,9 +71,29 @@ Verdicts cache fleet-wide in the `c2-vt` index (one lookup per distinct file
 until it goes stale at 30 d), so a single key easily covers the fleet. With a
 **public** key keep `C2E_VT_MAX_PER_RUN<=4` (matches VT's 4 req/min; the job
 sleeps 5 min between runs). A file with `vt_malicious >= C2E_VT_MIN_MALICIOUS`
-(default 1) escalates its C2 to `stage2_c2` with a `virustotal` signal; entities
-gain `max_vt_ratio` + `vt_families`. VT being slow/over-budget never blocks —
-the verdict just fills in on a later pass.
+(default 1) adds a `virustotal` signal to its C2 and the entity gains
+`max_vt_ratio` + `vt_families`. VT is **enrichment, not a classifier** — it never
+changes `stage` (the evidence ladder alone sets it; GreyNoise model). VT being
+slow/over-budget never blocks — the verdict just fills in on a later pass.
+
+## abuse.ch intel feeds (M6, optional)
+
+The reason job can corroborate entities against the **ThreatFox / URLhaus /
+Feodo Tracker** `recent` exports. **Off by default** — abuse.ch needs a free
+Auth-Key (get one at https://auth.abuse.ch/):
+
+```bash
+echo 'ABUSECH_AUTH_KEY=<your-abusech-key>' >> stingar.env
+docker compose up -d c2reason
+```
+
+The feeds bulk-download on a TTL (`C2E_INTEL_TTL_HOURS`, default 12) into the
+`c2-intel` cache and are matched locally against each entity's `c2_host` /
+`c2_resolved_ip` / `c2_url` / `sha256` — so there's no per-host rate limit, just
+the periodic download. A match adds the feed's name to `stage_signals`
+(`threatfox` / `urlhaus` / `feodo`) and records `intel_sources` + `intel_malware`.
+Like VT, it's **enrichment only** — it never changes `stage`. Choose feeds with
+`C2E_INTEL_FEEDS` (default all three).
 
 ## Blocklist / alert feed (M4)
 

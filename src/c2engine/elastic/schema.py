@@ -139,7 +139,7 @@ ENTITIES_TEMPLATE: dict[str, Any] = {
                     "c2_host": "the C2 host/IP (doc id; same field name on every index)",
                     "stage": "stage from the evidence ladder (max evidence_rank): unconfirmed | stage1_serving | stage2_c2. Intel never raises it — corroboration lives in stage_signals (GreyNoise model)",
                     "evidence_stage": "runtime: stage computed from max_evidence_rank at query time (coincides with `stage`)",
-                    "stage_signals": "third-party corroboration (annotation, does not change stage): callback_in_malware | known_malware | hassh_toolkit | virustotal",
+                    "stage_signals": "third-party corroboration (annotation, does not change stage): callback_in_malware | known_malware | hassh_toolkit | virustotal | threatfox | urlhaus | feodo",
                     "attributed_toolkit": "attacker toolkit(s) inferred from session hassh (e.g. mirai-loader)",
                     "families": "distinct malware families this C2 served (e.g. trojan.mirai/mozi)",
                     "max_evidence_rank": "strongest evidence: 0=referenced, 1=served a file, 2=found in malware",
@@ -151,6 +151,8 @@ ENTITIES_TEMPLATE: dict[str, Any] = {
                     "distinct_files": "distinct served-file sha256s",
                     "latest.c2_asn_org": "latest ASN org (latest.c2_country, latest.c2_host_kind likewise)",
                     "max_vt_ratio": "highest VirusTotal detection ratio across served files (M3)",
+                    "intel_sources": "abuse.ch feeds that matched this C2 (M6): threatfox | urlhaus | feodo. Annotation only — does not change stage",
+                    "intel_malware": "malware/threat names the matching feeds attribute to this C2 (feed vocabulary, distinct from rules-based `families`)",
                     "_naming_note": "the session index stingar-* uses sensor.hostname + @timestamp; ledger+entities use sensor_hostname + ts (pass-through invariant: we don't rewrite stock session fields)",
                 },
             },
@@ -195,6 +197,8 @@ ENTITIES_TEMPLATE: dict[str, Any] = {
                 "reason_version": {"type": "keyword"},
                 "max_vt_ratio": {"type": "float"},
                 "vt_families": {"type": "keyword"},
+                "intel_sources": {"type": "keyword"},
+                "intel_malware": {"type": "keyword"},
                 "updated_at": {"type": "date"},
             },
         },
@@ -249,6 +253,57 @@ VT_TEMPLATE: dict[str, Any] = {
                 "vt_ratio": {"type": "float"},
                 "vt_families": {"type": "keyword"},
                 "checked_at": {"type": "date"},
+            },
+        },
+    },
+}
+
+
+# --- M6: abuse.ch intel feed cache (one doc per IOC, fleet-wide) --------------
+# Named OUTSIDE the stingarc2-* glob (like c2-entities / c2-vt) so its template
+# never collides with the ledger template at the same priority. The reason job
+# is the sole writer: it bulk-downloads each feed's `recent` export on a TTL,
+# stores the normalized IOCs here, then loads them into memory per pass to
+# corroborate entities. Intel is ENRICHMENT (GreyNoise model) — a match adds a
+# stage_signal, never raises stage. Disabled unless ABUSECH_AUTH_KEY is set.
+INTEL_INDEX = "c2-intel"
+INTEL_TEMPLATE_NAME = "c2-intel"
+INTEL_TTL_HOURS = 12  # re-download a feed only after its cache is this old
+
+INTEL_TEMPLATE: dict[str, Any] = {
+    "index_patterns": [INTEL_INDEX],
+    "priority": 200,
+    "template": {
+        "settings": {"number_of_shards": 1},
+        "mappings": {
+            "_meta": {
+                "owner": "c2-engine reason layer",
+                "description": (
+                    "abuse.ch IOC cache, one doc per IOC (_id = source:value), "
+                    "fleet-wide. Bulk-loaded from ThreatFox / URLhaus / Feodo "
+                    "Tracker `recent` exports and matched against c2_host / "
+                    "c2_resolved_ip / c2_url to add intel_sources + intel_malware "
+                    "on entities. Refreshed when older than INTEL_TTL_HOURS."
+                ),
+                "fields": {
+                    "source": "feed that supplied the IOC: threatfox | urlhaus | feodo",
+                    "ioc_type": "ip | domain | url (normalized across feeds)",
+                    "value": "the IOC verbatim (ip[:port] / domain / url)",
+                    "host": "host/ip extracted from value for host-level matching (url netloc, or value itself)",
+                    "malware": "threat/malware names the feed attributes to the IOC",
+                    "tags": "feed tags (free-form)",
+                    "fetched_at": "when this IOC's feed was last downloaded (staleness clock)",
+                },
+            },
+            "dynamic": False,
+            "properties": {
+                "source": {"type": "keyword"},
+                "ioc_type": {"type": "keyword"},
+                "value": {"type": "keyword"},
+                "host": {"type": "keyword"},
+                "malware": {"type": "keyword"},
+                "tags": {"type": "keyword"},
+                "fetched_at": {"type": "date"},
             },
         },
     },

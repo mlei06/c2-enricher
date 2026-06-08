@@ -20,6 +20,7 @@ from typing import Any
 from c2engine.elastic.client import EsWriter
 from c2engine.elastic.schema import ENTITIES_INDEX, ENTITY_RETENTION_DAYS
 from c2engine.pipeline.enrich.geo import GeoEnricher
+from c2engine.services.reason.intel import IntelMatcher, apply_intel
 from c2engine.services.reason.vt import (
     DEFAULT_MIN_MALICIOUS,
     VtResolver,
@@ -84,7 +85,13 @@ def compute_overlay(
     return overlay
 
 
-def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
+def run_once(
+    es: EsWriter,
+    now: datetime.datetime | None = None,
+    *,
+    geo: GeoEnricher | None = None,
+    intel: IntelMatcher | None = None,
+) -> int:
     now = now or datetime.datetime.now(datetime.UTC)
     nowiso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     since = (now - datetime.timedelta(days=ENTITY_RETENTION_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -94,7 +101,11 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
     # per pass so the per-run lookup budget is shared across all entities.
     vt = VtResolver(es, now=now)
     # Entity-geo fallback (M5 map): graceful no-op without mmdbs.
-    geo = GeoEnricher()
+    geo = geo if geo is not None else GeoEnricher()
+    # abuse.ch intel feeds (M6): cache-first, TTL-refreshed, no-op without
+    # ABUSECH_AUTH_KEY. Refresh once per pass; matches are local set lookups.
+    intel = intel if intel is not None else IntelMatcher(es, now=now)
+    intel.refresh(now=now)
     try:
         min_mal = int(os.environ.get("C2E_VT_MIN_MALICIOUS", str(DEFAULT_MIN_MALICIOUS)))
     except ValueError:
@@ -121,6 +132,8 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
                 "families": {"terms": {"field": "family", "size": 25}},
                 "shas": {"terms": {"field": "sha256", "size": 200}},
                 "hasshes": {"terms": {"field": "hassh", "size": 50}},
+                "urls": {"terms": {"field": "c2_url", "size": 50}},
+                "resolved_ips": {"terms": {"field": "c2_resolved_ip", "size": 50}},
                 "latest": {"top_metrics": {
                     "metrics": [{"field": f} for f in _KW], "sort": [{"ts": "desc"}]}},
             }}},
@@ -135,9 +148,13 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
             fams = [x["key"] for x in b["families"]["buckets"]]
             shas = [x["key"] for x in b["shas"]["buckets"]]
             hasshes = [x["key"] for x in b["hasshes"]["buckets"]]
+            urls = [x["key"] for x in b["urls"]["buckets"]]
+            resolved_ips = [x["key"] for x in b["resolved_ips"]["buckets"]]
             metrics = (b["latest"]["top"][0]["metrics"] if b["latest"]["top"] else {})
             overlay = compute_overlay(max_rank, fams, shas, known, hasshes, hassh_toolkits)
             overlay = apply_vt(overlay, summarize_vt(vt.verdicts_for(shas)), min_mal)
+            overlay = apply_intel(overlay, intel.match(
+                host=host, resolved_ips=resolved_ips, urls=urls, shas=shas))
             doc: dict[str, Any] = {
                 "c2_host": host,
                 "first_seen": b["first_seen"]["value_as_string"],
@@ -175,18 +192,24 @@ def run_once(es: EsWriter, now: datetime.datetime | None = None) -> int:
 
     expired = es.delete_by_query(ENTITIES_INDEX, {"query": {"range": {"last_seen": {"lt": since}}}})
     log.info("reason: %d entities upserted, %d expired (known-malware shas: %d, "
-             "hassh toolkits: %d, vt lookups: %d, vt enabled: %s)",
+             "hassh toolkits: %d, vt lookups: %d, vt enabled: %s, intel enabled: %s, "
+             "intel refreshed: %s)",
              updated, expired, len(known), len(hassh_toolkits), vt.looked_up,
-             vt.client.enabled)
+             vt.client.enabled, intel.enabled, intel.refreshed or "-")
     return updated
 
 
 def run(interval: int | None = None) -> None:
     es = EsWriter()
     es.ensure_bootstrap()  # entity index template must exist before first write
+    # Built once and reused across passes: the GeoEnricher holds open mmdb
+    # readers (reopening every pass churns file handles) and the IntelMatcher
+    # keeps its IOC indexes in memory between TTL refreshes.
+    geo = GeoEnricher()
+    intel = IntelMatcher(es)
     while True:
         try:
-            run_once(es)
+            run_once(es, geo=geo, intel=intel)
         except Exception:  # noqa: BLE001 - a pass failing must not kill the loop
             log.exception("reason pass failed")
         if not interval:

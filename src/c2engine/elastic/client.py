@@ -19,6 +19,8 @@ from c2engine.elastic.schema import (
     ILM_POLICY_NAME,
     INDEX_TEMPLATE,
     INDEX_TEMPLATE_NAME,
+    INTEL_TEMPLATE,
+    INTEL_TEMPLATE_NAME,
     VT_TEMPLATE,
     VT_TEMPLATE_NAME,
 )
@@ -144,8 +146,11 @@ class EsWriter:
         self._put(f"_index_template/{ENTITIES_TEMPLATE_NAME}", ENTITIES_TEMPLATE)
         # VirusTotal verdict cache (M3); reason job is the sole writer.
         self._put(f"_index_template/{VT_TEMPLATE_NAME}", VT_TEMPLATE)
-        log.info("ES bootstrap ok: ILM + index templates (%s, %s, %s) installed",
-                 INDEX_TEMPLATE_NAME, ENTITIES_TEMPLATE_NAME, VT_TEMPLATE_NAME)
+        # abuse.ch intel feed cache (M6); reason job is the sole writer.
+        self._put(f"_index_template/{INTEL_TEMPLATE_NAME}", INTEL_TEMPLATE)
+        log.info("ES bootstrap ok: ILM + index templates (%s, %s, %s, %s) installed",
+                 INDEX_TEMPLATE_NAME, ENTITIES_TEMPLATE_NAME, VT_TEMPLATE_NAME,
+                 INTEL_TEMPLATE_NAME)
 
     def _send(self, method: str, path: str, body: dict[str, Any] | None = None) -> tuple[int, str]:
         """One-shot request returning (status, body) — tolerates 4xx (caller decides)."""
@@ -178,6 +183,35 @@ class EsWriter:
         if code >= 300:
             raise RuntimeError(f"ES delete_by_query {index} -> {code}: {resp[:300]}")
         return json.loads(resp).get("deleted", 0)
+
+    def bulk_index(self, index: str, docs: list[tuple[str, dict[str, Any]]]) -> int:
+        """Bulk-index (id, doc) pairs into `index`. Used by the reason job to load
+        intel feeds (thousands of IOCs) in one round-trip instead of N PUTs."""
+        if not docs:
+            return 0
+        lines: list[str] = []
+        for doc_id, doc in docs:
+            lines.append(json.dumps({"index": {"_index": index, "_id": doc_id}}))
+            lines.append(json.dumps(doc))
+        ndjson = "\n".join(lines) + "\n"
+        code, resp = self._send_raw("POST", "_bulk?refresh=true", ndjson)
+        if code >= 300:
+            raise RuntimeError(f"ES bulk {index} -> {code}: {resp[:300]}")
+        return len(docs)
+
+    def _send_raw(self, method: str, path: str, ndjson: str) -> tuple[int, str]:
+        """Like _send but for an x-ndjson body (the _bulk API)."""
+        req = urllib.request.Request(
+            f"{self._base}/{path}",
+            data=ndjson.encode("utf-8"),
+            headers={"Content-Type": "application/x-ndjson"},
+            method=method,
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                return resp.status, resp.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as exc:
+            return exc.code, exc.read().decode("utf-8", "replace")
 
     def write_session(self, doc: dict[str, Any], *, source_tag: str = "") -> None:
         if source_tag:

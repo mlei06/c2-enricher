@@ -127,17 +127,19 @@ markdown_viz("e-note", "C2 Entities — note",
              "**Stage** (set by the evidence ladder alone): unconfirmed · "
              "stage1_serving · stage2_c2. **Signals** are third-party "
              "corroboration that never change the stage (GreyNoise model): "
-             "callback_in_malware · known_malware · virustotal · hassh_toolkit.")
+             "callback_in_malware · known_malware · virustotal · hassh_toolkit · "
+             "threatfox · urlhaus · feodo.")
 metric_viz("e-confirmed", "Confirmed C2s (stage2)", query="stage:stage2_c2")
 pie_viz("e-stage", "By Stage", "stage")
 table_viz("e-signals", "Stage Signals", "stage_signals")
 table_viz("e-families", "Families (entity rollup)", "families")
+table_viz("e-intel", "Intel Sources (abuse.ch)", "intel_sources")
 table_viz("e-asn", "Top ASN Orgs", "latest.c2_asn_org")
 saved_search("e-entities", "Active C2 Entities",
              ["c2_host", "stage", "stage_signals", "attributed_toolkit", "families",
-              "max_evidence_rank", "max_vt_ratio", "vt_families", "sighting_count",
-              "sensor_count", "src_ip_count", "distinct_files", "latest.c2_asn_org",
-              "first_seen", "last_seen"], ENTITIES)
+              "intel_sources", "intel_malware", "max_evidence_rank", "max_vt_ratio",
+              "vt_families", "sighting_count", "sensor_count", "src_ip_count",
+              "distinct_files", "latest.c2_asn_org", "first_seen", "last_seen"], ENTITIES)
 # --- ledger drill-down (driven by the pinned c2_host filter) --------------
 saved_search("e-files", "Served Files (selected C2)",
              ["sha256", "sha1", "md5", "file_kind", "family", "size", "magic",

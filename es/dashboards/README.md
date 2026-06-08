@@ -7,7 +7,7 @@ on the STINGAR Kibana (DESIGN.md §7):
 |---|---|---|
 | `c2-command-center.ndjson` | **C2 Command Center** | C2-host-first: map of the threat, click a C2 → its honeypots/src_ips/payloads/sessions |
 | `c2-payload-explorer.ndjson` | **Payload Explorer** | file-first: families over time, one row per sha256, cross-sensor dedupe, script source |
-| `c2-entity-view.ndjson` | **C2 Entity View** (M5) | reason-layer-first: staged/decaying entities (`c2-entities`) — stage, signals, family rollup, VT ratio, ASN — click a C2 → its served files / scanners / sensors |
+| `c2-entity-view.ndjson` | **C2 Entity View** (M5) | reason-layer-first: staged/decaying entities (`c2-entities`) — stage, signals, family rollup, intel sources (abuse.ch), VT ratio, ASN — click a C2 → its served files / scanners / sensors |
 | `c2-geo-map.ndjson` | **C2 — Geo** (M5, Maps app) | world map: one point per active C2 (`c2_geo`), fill-colored by final `stage` (red stage2 / amber stage1 / grey unconfirmed). Standalone copy — the Entity View ndjson already bundles this object and embeds it as a dashboard panel |
 
 (DESIGN §7's "C2 Detail" is **not** a separate dashboard — it's the Command
