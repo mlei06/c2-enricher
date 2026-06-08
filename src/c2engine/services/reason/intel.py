@@ -43,6 +43,7 @@ _DEFAULT_URLS = {
 }
 ALL_FEEDS = tuple(_DEFAULT_URLS)
 _LOAD_CAP = 100_000  # max IOCs held in memory per pass (recent windows fit well under)
+_LOAD_PAGE = 5_000   # search_after page size; MUST stay <= index.max_result_window (10k default)
 
 
 def _norm_type(raw: str) -> str | None:
@@ -277,24 +278,45 @@ class IntelMatcher:
         )
 
     def _load_indexes(self) -> None:
+        # Page with search_after: the recent windows hold tens of thousands of
+        # IOCs, well over ES's default index.max_result_window (10k). A single
+        # size=_LOAD_CAP request throws search_phase_execution_exception, which
+        # used to be swallowed as "index missing" — silently loading an EMPTY
+        # index, so matching never fired whenever c2-intel exceeded 10k docs.
         self._urls, self._hosts, self._hashes = {}, {}, {}
-        try:
-            res = self.es.search(INTEL_INDEX, {"size": _LOAD_CAP, "query": {"match_all": {}}})
-        except RuntimeError:
-            self._loaded = True
-            return
-        hits = res.get("hits", {}).get("hits", [])
-        if len(hits) >= _LOAD_CAP:
+        after: list[Any] | None = None
+        loaded = 0
+        while loaded < _LOAD_CAP:
+            body: dict[str, Any] = {
+                "size": min(_LOAD_PAGE, _LOAD_CAP - loaded),
+                "query": {"match_all": {}},
+                "sort": [{"value": "asc"}, {"source": "asc"}],  # unique tiebreak (== _id)
+            }
+            if after is not None:
+                body["search_after"] = after
+            try:
+                res = self.es.search(INTEL_INDEX, body)
+            except RuntimeError:
+                self._loaded = True  # cache index not created yet (first run)
+                return
+            hits = res.get("hits", {}).get("hits", [])
+            if not hits:
+                break
+            for h in hits:
+                rec = h.get("_source", {})
+                t = rec.get("ioc_type")
+                if t == "url":
+                    self._urls[rec["value"]] = rec
+                elif t == "hash":
+                    self._hashes[rec["value"]] = rec
+                if rec.get("host"):
+                    self._hosts.setdefault(rec["host"], []).append(rec)
+            loaded += len(hits)
+            after = hits[-1].get("sort")
+            if len(hits) < body["size"] or after is None:
+                break
+        if loaded >= _LOAD_CAP:
             log.warning("intel: hit %d-IOC load cap; matches may be incomplete", _LOAD_CAP)
-        for h in hits:
-            rec = h.get("_source", {})
-            t = rec.get("ioc_type")
-            if t == "url":
-                self._urls[rec["value"]] = rec
-            elif t == "hash":
-                self._hashes[rec["value"]] = rec
-            if rec.get("host"):
-                self._hosts.setdefault(rec["host"], []).append(rec)
         self._loaded = True
 
     def refresh(self, now: datetime.datetime | None = None) -> None:

@@ -89,7 +89,15 @@ class _StubEs:
             src = body["query"]["term"]["source"]
             stamps = [d["fetched_at"] for d in self.docs.values() if d.get("source") == src]
             return {"aggregations": {"m": {"value_as_string": max(stamps) if stamps else None}}}
-        return {"hits": {"hits": [{"_source": d} for d in self.docs.values()]}}
+        # match_all load: honor sort + search_after + size so pagination is exercised.
+        def key(d: dict[str, Any]) -> list[str]:
+            return [d.get("value", ""), d.get("source", "")]
+        items = sorted(self.docs.values(), key=key)
+        after = body.get("search_after")
+        if after is not None:
+            items = [d for d in items if key(d) > list(after)]
+        items = items[: body.get("size", len(items))]
+        return {"hits": {"hits": [{"_source": d, "sort": key(d)} for d in items]}}
 
     def bulk_index(self, index: str, docs: list[tuple[str, dict[str, Any]]]) -> int:
         for doc_id, doc in docs:
@@ -166,6 +174,22 @@ def test_match_url_netloc_corroborates_host() -> None:
 def test_no_match_is_empty() -> None:
     m = _loaded_matcher()
     assert m.match(host="nothing.here", urls=["http://clean.example/y"])["sources"] == []
+
+
+def test_load_indexes_paginates(monkeypatch) -> None:
+    """c2-intel routinely exceeds ES's default 10k result window, so the IOC
+    load must page with search_after — not one oversized request that throws and
+    silently leaves the in-memory index empty (the live abuse.ch-matching bug)."""
+    from c2engine.services.reason import intel as intel_mod
+
+    monkeypatch.setattr(intel_mod, "_LOAD_PAGE", 2)  # force multiple pages
+    recs = [{"source": "feodo", "ioc_type": "ip", "value": f"10.0.0.{i}",
+             "host": f"10.0.0.{i}", "malware": [], "tags": []} for i in range(5)]
+    m = IntelMatcher(_StubEs(), client=_StubClient({"feodo": recs}), now=NOW, ttl_hours=12)
+    m.refresh(now=NOW)
+    # all 5 IOCs loaded across 3 pages of 2
+    for i in range(5):
+        assert m.match(host=f"10.0.0.{i}")["sources"] == ["feodo"]
 
 
 # --- annotate without escalating ---------------------------------------------
