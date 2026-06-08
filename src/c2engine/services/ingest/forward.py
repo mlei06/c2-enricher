@@ -40,6 +40,26 @@ def _as_bytes(blob: Any) -> bytes:
     return blob if isinstance(blob, (bytes, bytearray)) else blob.encode("utf-8", "surrogateescape")
 
 
+def _normalize(obj: Any) -> Any:
+    """Coerce any ``bytes`` map keys/scalars in a decoded record to ``str``.
+
+    The hop chain (Cowrie -> Fluent Bit -> Fluentd -> here) can pack a map key
+    or scalar as a msgpack BIN type, which ``raw=False`` faithfully decodes to
+    ``bytes``. The engine forwards the stock session doc VERBATIM (enrich/
+    session.py deep-copies it), so a single bytes key reaches ``json.dumps`` and
+    raises ``TypeError: keys must be str ... not bytes`` — crashing every
+    enrichable session on write and wedging the unacked chunk in Fluentd's
+    retry loop. JSON/ES need ``str`` keys, so normalize here at the boundary
+    (same place this module already absorbs the surrogateescape blob quirk)."""
+    if isinstance(obj, dict):
+        return {_normalize(k): _normalize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_normalize(v) for v in obj]
+    if isinstance(obj, (bytes, bytearray)):
+        return bytes(obj).decode("utf-8", "surrogateescape")
+    return obj
+
+
 def parse_frame(msg: object) -> tuple[list[tuple[str, dict[str, Any]]], dict[str, Any] | None]:
     """Return ([(tag, record), ...], option) for one forward-protocol frame.
 
@@ -56,7 +76,7 @@ def parse_frame(msg: object) -> tuple[list[tuple[str, dict[str, Any]]], dict[str
         # Forward mode: [tag, [[time, record], ...], option?]
         for entry in second:
             if isinstance(entry, list) and len(entry) >= 2 and isinstance(entry[1], dict):
-                records.append((tag, entry[1]))
+                records.append((tag, _normalize(entry[1])))
         if len(msg) >= 3 and isinstance(msg[2], dict):
             option = msg[2]
     elif isinstance(second, (bytes, bytearray, str)):
@@ -71,10 +91,10 @@ def parse_frame(msg: object) -> tuple[list[tuple[str, dict[str, Any]]], dict[str
         up.feed(data)
         for entry in up:
             if isinstance(entry, list) and len(entry) >= 2 and isinstance(entry[1], dict):
-                records.append((tag, entry[1]))
+                records.append((tag, _normalize(entry[1])))
     elif len(msg) >= 3 and isinstance(msg[2], dict):
         # Message mode: [tag, time, record, option?]  (second is the timestamp)
-        records.append((tag, msg[2]))
+        records.append((tag, _normalize(msg[2])))
         if len(msg) >= 4 and isinstance(msg[3], dict):
             option = msg[3]
 

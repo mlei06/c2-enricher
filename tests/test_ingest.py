@@ -76,6 +76,31 @@ def test_compressed_packed_forward() -> None:
     assert len(records) == 2
 
 
+def test_forward_record_bytes_keys_normalized_to_str() -> None:
+    """The hop chain can pack map keys/scalars as msgpack BIN, so a decoded
+    record arrives with bytes keys. The engine forwards the session doc verbatim,
+    so an un-normalized bytes key reaches json.dumps and crashes every enrichable
+    session on write (the live bug). parse_frame must hand back str-keyed,
+    JSON-serializable records."""
+    import json
+
+    frame = [
+        "stingar.enrichable.cowrie",
+        [[1, {b"src_ip": "1.2.3.4",
+              "hp_data": {b"session": "abc", b"kex": {b"hassh": "h"}},
+              b"ttylog": b"deadbeef"}]],
+        None,
+    ]
+    records, _ = parse_frame(frame)
+    (_, rec), = records
+    assert rec == {
+        "src_ip": "1.2.3.4",
+        "hp_data": {"session": "abc", "kex": {"hassh": "h"}},
+        "ttylog": "deadbeef",
+    }
+    json.dumps(rec)  # must not raise TypeError on bytes keys
+
+
 def test_garbage_frame_is_ignored() -> None:
     assert parse_frame("not a frame") == ([], None)
     assert parse_frame([42]) == ([], None)
