@@ -78,10 +78,18 @@ mypy src/c2engine
 
 ## Deployment & sensor
 
-See [deploy/README.md](deploy/README.md) for the compose stack (ingest + reason
-+ feed services, Fluentd routing, and the optional intel enrichment — M3
-VirusTotal, M6 abuse.ch feeds — plus the M4 blocklist setup) and `sensor/` for
-the cowrie fork + STINGAR overlay that produces the enrichable session docs.
+Deployment is in two halves — start at [deploy/README.md](deploy/README.md) for
+orientation, then:
+
+- **[deploy/server.md](deploy/server.md)** — the central STINGAR + c2-engine
+  stack (ingest + reason + feed services, Fluentd routing, dashboards, and the
+  optional intel enrichment — M3 VirusTotal, M6 abuse.ch feeds — plus the M4
+  blocklist setup).
+- **[deploy/sensor/README.md](deploy/sensor/README.md)** — standing up a
+  honeypot sensor host and pointing it at the server (host-agnostic).
+
+For the honeypot image internals (the cowrie fork + STINGAR overlay that
+produces the enrichable session docs) see [sensor/README.md](sensor/README.md).
 
 ## License
 
