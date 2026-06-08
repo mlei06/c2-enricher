@@ -92,6 +92,22 @@ def saved_search(sid, title, columns, dv, query=""):
     })
 
 
+def data_view(dv_id, title, time_field):
+    objs.append({
+        "id": dv_id, "type": "index-pattern",
+        "attributes": {"title": title, "timeFieldName": time_field},
+        "references": [],
+    })
+
+
+# --- data views -----------------------------------------------------------
+# The session index. timeFieldName MUST be `end_time`: c2-engine writes the
+# stock session doc directly to ES and (unlike the old logstash_format path)
+# never adds `@timestamp`, so the Raw Sessions panel would filter on a field no
+# enrichable-session doc carries and silently render empty. (c2-ledger is
+# created by the entity-view import; only the new sessions view is emitted here.)
+data_view(SESSIONS, "stingar-*", "end_time")
+
 # --- panels ---------------------------------------------------------------
 markdown_viz("c2-note", "C2 — note",
              "### C2 Command Center\nClick a **c2_host** (Top C2 Hosts) → "
